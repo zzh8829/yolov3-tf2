@@ -17,7 +17,7 @@ from tensorflow.keras.losses import (
     sparse_categorical_crossentropy
 )
 from tensorflow.python.keras.backend import get_graph  # extreme hack
-from .utils import broadcast_iou, iou_nms
+from .utils import broadcast_iou
 
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
@@ -221,10 +221,11 @@ def yolo_loss(y_true, y_pred, anchors, classes, ignore_thresh):
         tf.reduce_sum(tf.square(true_xy - pred_xy), axis=-1)
     wh_loss = obj_mask * box_loss_scale * \
         tf.reduce_sum(tf.square(true_wh - pred_wh), axis=-1)
-    obj_loss = binary_crossentropy(true_obj, pred_obj)
+    obj_loss = binary_crossentropy(true_obj, pred_obj, from_logits=True)
     obj_loss = obj_mask * obj_loss + (1 - obj_mask) * ignore_mask * obj_loss
+    # TODO: use binary_crossentropy instead
     class_loss = obj_mask * sparse_categorical_crossentropy(
-        true_class_idx, pred_class)
+        true_class_idx, pred_class, from_logits=True)
 
     # 6. sum over (gridx, gridy, anchors) => (batch, )
     xy_loss = tf.reduce_sum(xy_loss, axis=(1, 2, 3))

@@ -20,9 +20,12 @@ This repo provides a clean implementation of YoloV3 in Tensorflow 2.0 using all 
 - [x] Following the best practices
 - [x] MIT License
 
+![demo](https://raw.githubusercontent.com/zzh8829/yolov3-tf2/master/data/meme_out.jpg)
+
 ## Usage
 
 ### Installation
+
 ```
 pip install -r requirements.txt
 ```

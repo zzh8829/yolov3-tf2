@@ -1,13 +1,12 @@
 from absl import app, flags, logging
 from absl.flags import FLAGS
-
 import tensorflow as tf
 import numpy as np
+import cv2
 
 from yolov3_tf2.models import YoloV3, YoloLoss, yolo_anchors, yolo_output
 from yolov3_tf2.utils import draw_outputs
-import cv2
-import yolov3
+
 
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
@@ -85,7 +84,7 @@ def transform_fn(x_train, y_train):
 
 
 def main(_argv):
-    N = 100
+    N = 200
 
     img = img_og = cv2.imread('./data/girl.png')
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -96,9 +95,10 @@ def main(_argv):
     x_train = np.tile(x_train, (N, 1, 1, 1)).astype(np.float32)
 
     labels = [
-        [0.06783929, 0.03730187, 0.9675218,  0.96493953, 0],
-        [0.01855323, 0.34224018, 0.17417607, 0.627799, 56],
-    ] + [[0, 0, 0, 0, 0]] * 18
+        [0.18494931, 0.03049111, 0.9435849,  0.96302897, 0],
+        [0.01586703, 0.35938117, 0.17582396, 0.6069674, 56],
+        [0.09158827, 0.48252046, 0.26967454, 0.6403017, 67]
+    ] + [[0, 0, 0, 0, 0]] * 17
     y_train = np.expand_dims(np.array(labels), 0)
     # [batch, boxes, [x1, y1, x2, y2, class]]
     y_train = np.tile(y_train, (N, 1, 1)).astype(np.float32)
@@ -107,7 +107,7 @@ def main(_argv):
 
     train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
     train_dataset = train_dataset.shuffle(buffer_size=1024)
-    train_dataset = train_dataset.batch(5)
+    train_dataset = train_dataset.batch(10)
     train_dataset = train_dataset.map(transform_fn)
     train_dataset = train_dataset.prefetch(
         buffer_size=tf.data.experimental.AUTOTUNE)
@@ -115,7 +115,7 @@ def main(_argv):
     model = YoloV3(416)
     model.load_weights('./data/yolov3.h5')
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    optimizer = tf.keras.optimizers.Adam()
     loss = [YoloLoss(yolo_anchors[6:9]),
             YoloLoss(yolo_anchors[3:6]),
             YoloLoss(yolo_anchors[0:3])]
@@ -124,6 +124,9 @@ def main(_argv):
 
     for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
         l.trainable = False
+    for l in model.layers:
+        if l.name.startswith('batch_norm'):
+            l.trainable = False
 
     for batch, (images, labels) in enumerate(train_dataset):
         with tf.GradientTape() as tape:
@@ -139,7 +142,7 @@ def main(_argv):
 
         logging.info("{}, {}".format(batch, avg_loss.result().numpy()))
 
-    model.save('data/yolov3_custom.h5')
+    model.save('data/yolov3_custom2.h5')
 
 
 if __name__ == '__main__':
