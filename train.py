@@ -11,8 +11,7 @@ from yolov3_tf2.utils import draw_outputs
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
-flags.DEFINE_string('image', './data/girl.png', 'path to input image')
-flags.DEFINE_string('output', './data/output.jpg', 'path to output image')
+flags.DEFINE_integer('batch_size', 32, 'batch size')
 
 
 @tf.function
@@ -107,26 +106,30 @@ def main(_argv):
 
     train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
     train_dataset = train_dataset.shuffle(buffer_size=1024)
-    train_dataset = train_dataset.batch(10)
+    train_dataset = train_dataset.batch(FLAGS.batch_size)
     train_dataset = train_dataset.map(transform_fn)
     train_dataset = train_dataset.prefetch(
         buffer_size=tf.data.experimental.AUTOTUNE)
 
     model = YoloV3(416)
-    model.load_weights('./data/yolov3.h5')
+    model.load_weights('./data/yolov3_custom.h5')
 
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer = tf.keras.optimizers.Adam(lr=1e-3)
     loss = [YoloLoss(yolo_anchors[6:9]),
             YoloLoss(yolo_anchors[3:6]),
             YoloLoss(yolo_anchors[0:3])]
 
     avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)
 
-    for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
-        l.trainable = False
+    # for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
+    #     l.trainable = False
+    # for l in model.layers:
+    #     if l.name.startswith('batch_norm'):
+    #         l.trainable = False
     for l in model.layers:
-        if l.name.startswith('batch_norm'):
-            l.trainable = False
+        l.trainable = False
+    model.layers[240].trainable = True
+    model.layers[249].trainable = True
 
     for batch, (images, labels) in enumerate(train_dataset):
         with tf.GradientTape() as tape:
