@@ -22,9 +22,11 @@ from .utils import broadcast_iou
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
                          (59, 119), (116, 90), (156, 198), (373, 326)]) / 416.0
+yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 
 yolo_tiny_anchors = np.array([(10, 14), (23, 27), (37, 58),
                               (81, 82), (135, 169),  (344, 319)]) / 416.0
+yolo_tiny_anchor_masks = np.array([[3, 4, 5], [0, 1, 2]])
 
 
 class BatchNormalization(tf.keras.layers.BatchNormalization):

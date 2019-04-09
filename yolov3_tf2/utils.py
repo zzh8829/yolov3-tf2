@@ -279,7 +279,7 @@ def load_yolov3_from_darknet(model, weights_file, tiny=False):
     else:
         weights = YOLOV3_WEIGHTS_LIST
 
-    for name, i in enumerate(weights):
+    for i, name in enumerate(weights):
         layer = model.get_layer(name)
         batch_norm = None
 
@@ -354,3 +354,19 @@ def draw_outputs(img, outputs, class_names):
             class_names[classes[i]], objectness[i]),
             x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
     return img
+
+
+def draw_labels(x, y, class_names):
+    img = x.numpy()
+    boxes, classes = tf.split(y, (4, 1), axis=-1)
+    classes = classes[..., 0]
+    wh = np.flip(img.shape[0:2])
+    for i in range(len(boxes)):
+        x1y1 = tuple((boxes[i][0:2].numpy() * wh).astype(np.int32))
+        x2y2 = tuple((boxes[i][2:4].numpy() * wh).astype(np.int32))
+        img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 2)
+        img = cv2.putText(img, class_names[classes[i]],
+                          x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                          1, (0, 0, 255), 2)
+    return img
+

@@ -30,6 +30,13 @@ This repo provides a clean implementation of YoloV3 in Tensorflow 2.0 using all 
 pip install -r requirements.txt
 ```
 
+### Convert pre-trained Darknet weights
+
+```
+wget https://pjreddie.com/media/files/yolov3.weights -O data/yolov3.weights
+python convert.py
+```
+
 ### Detection
 
 ```
@@ -40,12 +47,6 @@ python detect.py
 
 ```
 python train.py
-```
-
-### Convert Darknet weights
-
-```
-python convert.py
 ```
 
 ## Implementation Details
