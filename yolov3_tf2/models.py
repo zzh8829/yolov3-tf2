@@ -281,8 +281,8 @@ def yolo_output(outputs):
     boxes, scores, classes, valid_detections = tf.combined_non_max_suppression(
         boxes=tf.reshape(bbox, (bbox.shape[0], -1, 1, 4)),
         scores=tf.reshape(scores, (scores.shape[0], -1, scores.shape[-1])),
-        max_output_size_per_class=20,
-        max_total_size=20,
+        max_output_size_per_class=100,
+        max_total_size=100,
         iou_threshold=0.5,
         score_threshold=0.5
     )

@@ -12,6 +12,7 @@ import yolov3_tf2.dataset as dataset
 
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
+flags.DEFINE_string('dataset', '', 'path to dataset')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_integer('size', 416, 'image size')
 flags.DEFINE_integer('epochs', 1, 'number of epochs')
@@ -20,7 +21,7 @@ flags.DEFINE_integer('batch_size', 32, 'batch size')
 
 def main(_argv):
     train_dataset = dataset.load_tfrecord_dataset(
-        '/Users/zihao/Data/test-TFRecords-export/*.tfrecord', FLAGS.classes)
+        FLAGS.dataset, FLAGS.classes)
     # train_dataset = dataset.load_fake_dataset()
     train_dataset = train_dataset.shuffle(buffer_size=1024)  # TODO: not 1024
     train_dataset = train_dataset.repeat(FLAGS.epochs)
@@ -32,6 +33,7 @@ def main(_argv):
         buffer_size=tf.data.experimental.AUTOTUNE)
 
     model = YoloV3(FLAGS.size)
+    init_weights = [l.get_weights() for l in model.layers]
     model.load_weights(FLAGS.weights)
 
     optimizer = tf.keras.optimizers.Adam(lr=1e-3)
@@ -39,15 +41,17 @@ def main(_argv):
 
     avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)
 
-    # for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
-    #     l.trainable = False
+    for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
+        l.trainable = False
+    for i in range(185, len(model.layers)):
+        model.layers[i].set_weights(init_weights[i])
     # for l in model.layers:
     #     if l.name.startswith('batch_norm'):
-    #         l.trainable = False
-    for l in model.layers:
-        l.trainable = False
-    model.layers[240].trainable = True
-    model.layers[249].trainable = True
+    # #         l.trainable = False
+    # for l in model.layers:
+    #     l.trainable = False
+    # model.layers[240].trainable = True
+    # model.layers[249].trainable = True
 
     for epoch in range(FLAGS.epochs):
         for batch, (images, labels) in enumerate(train_dataset):
