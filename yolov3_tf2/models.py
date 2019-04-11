@@ -49,7 +49,7 @@ def DarknetConv(x, filters, size, strides=1, batch_norm=True):
         padding = 'valid'
     x = Conv2D(filters=filters, kernel_size=size,
                strides=strides, padding=padding,
-               use_bias=not batch_norm, kernel_regularizer=l2(0.9))(x)
+               use_bias=not batch_norm, kernel_regularizer=l2(0.0005))(x)
     if batch_norm:
         x = BatchNormalization()(x)
         x = LeakyReLU(alpha=0.1)(x)
@@ -105,14 +105,27 @@ def YoloConcat(x, x_concat, filters):
     return x
 
 
-def YoloOutput(x, filters, out_filters):
+class YoloReshape(tf.keras.layers.Layer):
+    # did this to solve weird issue with save_weights
+    def __init__(self, anchors, classes):
+        super().__init__()
+        self.anchors = anchors
+        self.classes = classes
+
+    def call(self, x):
+        return tf.reshape(x, (-1, tf.shape(x)[1], tf.shape(x)[2],
+                              self.anchors, self.classes + 5))
+
+
+def YoloOutput(x, filters, anchors, classes):
     x = DarknetConv(x, filters, 1)
     x = DarknetConv(x, filters * 2, 3)
     x = DarknetConv(x, filters, 1)
     x = DarknetConv(x, filters * 2, 3)
     x = x_out = DarknetConv(x, filters, 1)
     x_out = DarknetConv(x_out, filters * 2, 3)
-    x_out = DarknetConv(x_out, out_filters, 1, batch_norm=False)
+    x_out = DarknetConv(x_out, anchors * (classes + 5), 1, batch_norm=False)
+    x_out = YoloReshape(anchors, classes)(x_out)
     return x, x_out
 
 
@@ -123,16 +136,19 @@ def YoloV3(size=None, classes=80):
         with tf.name_scope("darknet"):
             x_36, x_61, x = Darknet53(x)
 
-        with tf.name_scope("yolo"):
-            x, output_1 = YoloOutput(x, 512, 3*(classes+5))
+        with tf.name_scope("yolo_0"):
+            x, output_1 = YoloOutput(
+                x, 512, len(yolo_anchor_masks[0]), classes)
 
-        with tf.name_scope("yolo"):
+        with tf.name_scope("yolo_1"):
             x = YoloConcat(x, x_61, 256)
-            x, output_2 = YoloOutput(x, 256, 3*(classes+5))
+            x, output_2 = YoloOutput(
+                x, 256, len(yolo_anchor_masks[1]), classes)
 
-        with tf.name_scope("yolo"):
+        with tf.name_scope("yolo_2"):
             x = YoloConcat(x, x_36, 128)
-            x, output_3 = YoloOutput(x, 128, 3*(classes+5))
+            x, output_3 = YoloOutput(
+                x, 128, len(yolo_anchor_masks[2]), classes)
 
     return Model(inputs, [output_1, output_2, output_3])
 
@@ -157,11 +173,8 @@ def YoloV3Tiny(size=None, classes=80):
 
 
 def yolo_boxes(pred, anchors, classes=80):
-    # [batch_size, size, size, anchors,
-    #     [center_x, center_y, width, height, confidence, ...classes]]
-    grid_size = pred.shape[1]
-    pred = tf.reshape(pred, (-1, grid_size, grid_size,
-                             tf.shape(anchors)[0], classes + 5))
+    # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
+    grid_size = tf.shape(pred)[1]
     box_xy, box_wh, objectness, class_probs = tf.split(
         pred, (2, 2, 1, classes), axis=-1)
 
@@ -175,7 +188,8 @@ def yolo_boxes(pred, anchors, classes=80):
                           axis=2)  # [size, size, 1, 2]
     grid = tf.tile(grid, (1, 1, tf.shape(anchors)[0], 1))
 
-    box_xy = (box_xy + tf.cast(grid, tf.float32)) / grid_size
+    box_xy = (box_xy + tf.cast(grid, tf.float32)) / \
+        tf.cast(grid_size, tf.float32)
     box_wh = tf.exp(box_wh) * anchors
 
     box_x1y1 = box_xy - box_wh / 2
@@ -186,18 +200,15 @@ def yolo_boxes(pred, anchors, classes=80):
 
 
 def yolo_loss(y_true, y_pred, anchors, classes, ignore_thresh):
-    grid_size = y_pred.shape[1]
-
     # 1. transform all pred outputs
+    # y_pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
     pred_box, _, _ = yolo_boxes(y_pred, anchors)
-    # (N, gridx, gridy, anchors, (x, y, w, h, obj, ...class))
-    y_pred = tf.reshape(
-        y_pred, (-1, grid_size, grid_size, len(anchors), classes + 5))
     pred_xy, pred_wh, pred_obj, pred_class = tf.split(
         y_pred, (2, 2, 1, classes), axis=-1)
     pred_xy = tf.sigmoid(pred_xy)
 
     # 2. transform all true outputs
+    # y_true: (batch_size, grid, grid, anchors, (x1, y1, x2, y2, obj, class))
     true_box, true_obj, true_class_idx = tf.split(y_true, (4, 1, 1), axis=-1)
     true_xy = (true_box[..., 0:2] + true_box[..., 2:4]) / 2
     true_wh = true_box[..., 2:4] - true_box[..., 0:2]
@@ -206,7 +217,8 @@ def yolo_loss(y_true, y_pred, anchors, classes, ignore_thresh):
     box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
 
     # 3. inverting the pred box equations
-    true_xy = (true_xy % (1/grid_size)) / (1/grid_size)
+    grid_size_frac = 1 / tf.cast(tf.shape(y_pred)[1], tf.float32)
+    true_xy = (true_xy % grid_size_frac) / grid_size_frac
     true_wh = tf.math.log(true_wh / anchors)
     true_wh = tf.where(tf.math.is_inf(true_wh),
                        tf.zeros_like(true_wh), true_wh)
