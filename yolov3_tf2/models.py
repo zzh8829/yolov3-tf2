@@ -6,6 +6,7 @@ from tensorflow.keras.layers import (
     Concatenate,
     Conv2D,
     Input,
+    Lambda,
     LeakyReLU,
     MaxPool2D,
     UpSampling2D,
@@ -16,7 +17,7 @@ from tensorflow.keras.losses import (
     binary_crossentropy,
     sparse_categorical_crossentropy
 )
-from tensorflow.python.keras.backend import get_graph  # extreme hack
+from .batch_norm import BatchNormalization
 from .utils import broadcast_iou
 
 
@@ -27,18 +28,6 @@ yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 yolo_tiny_anchors = np.array([(10, 14), (23, 27), (37, 58),
                               (81, 82), (135, 169),  (344, 319)]) / 416.0
 yolo_tiny_anchor_masks = np.array([[3, 4, 5], [0, 1, 2]])
-
-
-class BatchNormalization(tf.keras.layers.BatchNormalization):
-    """
-    Make trainable=False freeze BN for real (the og version is sad)
-    """
-
-    def call(self, x, training=False):
-        if training is None:
-            training = tf.constant(False)
-        training = tf.logical_and(training, self.trainable)
-        return super().call(x, training)
 
 
 def DarknetConv(x, filters, size, strides=1, batch_norm=True):
@@ -71,17 +60,69 @@ def DarknetBlock(x, filters, blocks):
     return x
 
 
-def Darknet53(x):
+def Darknet(name=None):
+    x = inputs = Input([None, None, 3])
     x = DarknetConv(x, 32, 3)
     x = DarknetBlock(x, 64, 1)
     x = DarknetBlock(x, 128, 2)  # skip connection
     x = x_36 = DarknetBlock(x, 256, 8)  # skip connection
     x = x_61 = DarknetBlock(x, 512, 8)
     x = DarknetBlock(x, 1024, 4)
-    return x_36, x_61, x
+    return tf.keras.Model(inputs, (x_36, x_61, x), name=name)
 
 
-def Darknet(x):
+def YoloConv(filters, name=None):
+    def yolo_conv(x_in):
+        if isinstance(x_in, tuple):
+            inputs = Input(x_in[0].shape[1:]), Input(x_in[1].shape[1:])
+            x, x_skip = inputs
+
+            # concat with skip connection
+            x = DarknetConv(x, filters, 1)
+            x = UpSampling2D(2)(x)
+            x = Concatenate()([x, x_skip])
+        else:
+            x = inputs = Input(x_in.shape[1:])
+
+        x = DarknetConv(x, filters, 1)
+        x = DarknetConv(x, filters * 2, 3)
+        x = DarknetConv(x, filters, 1)
+        x = DarknetConv(x, filters * 2, 3)
+        x = DarknetConv(x, filters, 1)
+        return Model(inputs, x, name=name)(x_in)
+    return yolo_conv
+
+
+def YoloOutput(filters, anchors, classes, name=None):
+    def yolo_output(x_in):
+        x = inputs = Input(x_in.shape[1:])
+        x = DarknetConv(x, filters * 2, 3)
+        x = DarknetConv(x, anchors * (classes + 5), 1, batch_norm=False)
+        x = Lambda(lambda x: tf.reshape(x, (-1, tf.shape(x)[1], tf.shape(x)[2],
+                                            anchors, classes + 5)))(x)
+        return tf.keras.Model(inputs, x, name=name)(x_in)
+    return yolo_output
+
+
+def YoloV3(size=None, channels=3, masks=yolo_anchor_masks, classes=80):
+    x = inputs = Input([size, size, channels])
+
+    x_36, x_61, x = Darknet(name='yolo_darknet')(x)
+
+    x = YoloConv(512, name='yolo_conv_0')(x)
+    output_0 = YoloOutput(512, len(masks[0]), classes, name='yolo_output_0')(x)
+
+    x = YoloConv(256, name='yolo_conv_1')((x, x_61))
+    output_1 = YoloOutput(256, len(masks[1]), classes, name='yolo_output_1')(x)
+
+    x = YoloConv(128, name='yolo_conv_2')((x, x_36))
+    output_2 = YoloOutput(128, len(masks[2]), classes, name='yolo_output_2')(x)
+
+    return Model(inputs, [output_0, output_1, output_2])
+
+
+def DarknetTiny(name=None):
+    x = inputs = Input([None, None, 3])
     x = DarknetConv(x, 16, 3)
     x = MaxPool2D(2, 2, 'same')(x)
     x = DarknetConv(x, 32, 3)
@@ -95,81 +136,39 @@ def Darknet(x):
     x = DarknetConv(x, 512, 3)
     x = MaxPool2D(2, 1, 'same')(x)
     x = DarknetConv(x, 1024, 3)
-    return x_8, x
+    return tf.keras.Model(inputs, (x_8, x), name=name)
 
 
-def YoloConcat(x, x_concat, filters):
-    x = DarknetConv(x, filters, 1)
-    x = UpSampling2D(2)(x)
-    x = Concatenate()([x, x_concat])
-    return x
+def YoloConvTiny(filters, name=None):
+    def yolo_conv(x_in):
+        if isinstance(x_in, tuple):
+            inputs = Input(x_in[0].shape[1:]), Input(x_in[1].shape[1:])
+            x, x_skip = inputs
+
+            # concat with skip connection
+            x = DarknetConv(x, filters, 1)
+            x = UpSampling2D(2)(x)
+            x = Concatenate()([x, x_skip])
+        else:
+            x = inputs = Input(x_in.shape[1:])
+            x = DarknetConv(x, filters, 1)
+
+        return Model(inputs, x, name=name)(x_in)
+    return yolo_conv
 
 
-class YoloReshape(tf.keras.layers.Layer):
-    # did this to solve weird issue with save_weights
-    def __init__(self, anchors, classes):
-        super().__init__()
-        self.anchors = anchors
-        self.classes = classes
+def YoloV3Tiny(size=None, channels=3,
+               masks=yolo_tiny_anchor_masks, classes=80):
+    x = inputs = Input(shape=[size, size, channels])
+    x_8, x = DarknetTiny(name='yolo_darknet')(x)
 
-    def call(self, x):
-        return tf.reshape(x, (-1, tf.shape(x)[1], tf.shape(x)[2],
-                              self.anchors, self.classes + 5))
+    x = YoloConvTiny(256, name='yolo_conv_0')(x)
+    output_0 = YoloOutput(256, len(masks[0]), classes, name='yolo_output_0')(x)
 
+    x = YoloConvTiny(128, name='yolo_conv_1')((x, x_8))
+    output_1 = YoloOutput(128, len(masks[1]), classes, name='yolo_output_1')(x)
 
-def YoloOutput(x, filters, anchors, classes):
-    x = DarknetConv(x, filters, 1)
-    x = DarknetConv(x, filters * 2, 3)
-    x = DarknetConv(x, filters, 1)
-    x = DarknetConv(x, filters * 2, 3)
-    x = x_out = DarknetConv(x, filters, 1)
-    x_out = DarknetConv(x_out, filters * 2, 3)
-    x_out = DarknetConv(x_out, anchors * (classes + 5), 1, batch_norm=False)
-    x_out = YoloReshape(anchors, classes)(x_out)
-    return x, x_out
-
-
-def YoloV3(size=None, classes=80):
-    with get_graph().as_default():
-        x = inputs = Input(shape=[size, size, 3])
-
-        with tf.name_scope("darknet"):
-            x_36, x_61, x = Darknet53(x)
-
-        with tf.name_scope("yolo_0"):
-            x, output_1 = YoloOutput(
-                x, 512, len(yolo_anchor_masks[0]), classes)
-
-        with tf.name_scope("yolo_1"):
-            x = YoloConcat(x, x_61, 256)
-            x, output_2 = YoloOutput(
-                x, 256, len(yolo_anchor_masks[1]), classes)
-
-        with tf.name_scope("yolo_2"):
-            x = YoloConcat(x, x_36, 128)
-            x, output_3 = YoloOutput(
-                x, 128, len(yolo_anchor_masks[2]), classes)
-
-    return Model(inputs, [output_1, output_2, output_3])
-
-
-def YoloTinyOutput(x, filters, out_filters):
-    x = DarknetConv(x, filters, 3)
-    x = DarknetConv(x, out_filters, 1, batch_norm=False)
-    return x
-
-
-def YoloV3Tiny(size=None, classes=80):
-    x = inputs = Input(shape=[size, size, 3])
-    x_8, x = Darknet(x)
-
-    x = DarknetConv(x, 256, 1)
-    output_1 = YoloTinyOutput(x, 512, 3*(classes+5))
-
-    x = YoloConcat(x, x_8, 128)
-    output_2 = YoloTinyOutput(x, 256, 3*(classes+5))
-
-    return Model(inputs, [output_1, output_2])
+    return Model(inputs, [output_0, output_1])
 
 
 def yolo_boxes(pred, anchors, classes=80):
@@ -199,95 +198,76 @@ def yolo_boxes(pred, anchors, classes=80):
     return box, objectness, class_probs
 
 
-def yolo_loss(y_true, y_pred, anchors, classes, ignore_thresh):
-    # 1. transform all pred outputs
-    # y_pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
-    pred_box, _, _ = yolo_boxes(y_pred, anchors)
-    pred_xy, pred_wh, pred_obj, pred_class = tf.split(
-        y_pred, (2, 2, 1, classes), axis=-1)
-    pred_xy = tf.sigmoid(pred_xy)
-
-    # 2. transform all true outputs
-    # y_true: (batch_size, grid, grid, anchors, (x1, y1, x2, y2, obj, class))
-    true_box, true_obj, true_class_idx = tf.split(y_true, (4, 1, 1), axis=-1)
-    true_xy = (true_box[..., 0:2] + true_box[..., 2:4]) / 2
-    true_wh = true_box[..., 2:4] - true_box[..., 0:2]
-
-    # give higher weights to small boxes
-    box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
-
-    # 3. inverting the pred box equations
-    grid_size_frac = 1 / tf.cast(tf.shape(y_pred)[1], tf.float32)
-    true_xy = (true_xy % grid_size_frac) / grid_size_frac
-    true_wh = tf.math.log(true_wh / anchors)
-    true_wh = tf.where(tf.math.is_inf(true_wh),
-                       tf.zeros_like(true_wh), true_wh)
-
-    # 4. calculate all masks
-    obj_mask = tf.squeeze(true_obj, -1)
-    # ignore false positive when iou is over threshold
-    true_box_flat = tf.boolean_mask(true_box, tf.cast(obj_mask, tf.bool))
-    best_iou = tf.reduce_max(broadcast_iou(pred_box, true_box_flat), axis=-1)
-    ignore_mask = tf.cast(best_iou < ignore_thresh, tf.float32)
-
-    # 5. calculate all losses
-    xy_loss = obj_mask * box_loss_scale * \
-        tf.reduce_sum(tf.square(true_xy - pred_xy), axis=-1)
-    wh_loss = obj_mask * box_loss_scale * \
-        tf.reduce_sum(tf.square(true_wh - pred_wh), axis=-1)
-    obj_loss = binary_crossentropy(true_obj, pred_obj, from_logits=True)
-    obj_loss = obj_mask * obj_loss + (1 - obj_mask) * ignore_mask * obj_loss
-    # TODO: use binary_crossentropy instead
-    class_loss = obj_mask * sparse_categorical_crossentropy(
-        true_class_idx, pred_class, from_logits=True)
-
-    # 6. sum over (gridx, gridy, anchors) => (batch, )
-    xy_loss = tf.reduce_sum(xy_loss, axis=(1, 2, 3))
-    wh_loss = tf.reduce_sum(wh_loss, axis=(1, 2, 3))
-    obj_loss = tf.reduce_sum(obj_loss, axis=(1, 2, 3))
-    class_loss = tf.reduce_sum(class_loss, axis=(1, 2, 3))
-
-    return xy_loss, wh_loss, obj_loss, class_loss
-
-
 def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
-    def loss(y_true, y_pred):
-        xy_loss, wh_loss, obj_loss, class_loss = yolo_loss(
-            y_true, y_pred, anchors, classes, ignore_thresh)
+    def yolo_loss(y_true, y_pred):
+        # 1. transform all pred outputs
+        # y_pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...cls))
+        pred_box, _, _ = yolo_boxes(y_pred, anchors)
+        pred_xy, pred_wh, pred_obj, pred_class = tf.split(
+            y_pred, (2, 2, 1, classes), axis=-1)
+        pred_xy = tf.sigmoid(pred_xy)
+
+        # 2. transform all true outputs
+        # y_true: (batch_size, grid, grid, anchors, (x1, y1, x2, y2, obj, cls))
+        true_box, true_obj, true_class_idx = tf.split(
+            y_true, (4, 1, 1), axis=-1)
+        true_xy = (true_box[..., 0:2] + true_box[..., 2:4]) / 2
+        true_wh = true_box[..., 2:4] - true_box[..., 0:2]
+
+        # give higher weights to small boxes
+        box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
+
+        # 3. inverting the pred box equations
+        grid_size_frac = 1 / tf.cast(tf.shape(y_pred)[1], tf.float32)
+        true_xy = (true_xy % grid_size_frac) / grid_size_frac
+        true_wh = tf.math.log(true_wh / anchors)
+        true_wh = tf.where(tf.math.is_inf(true_wh),
+                           tf.zeros_like(true_wh), true_wh)
+
+        # 4. calculate all masks
+        obj_mask = tf.squeeze(true_obj, -1)
+        # ignore false positive when iou is over threshold
+        true_box_flat = tf.boolean_mask(true_box, tf.cast(obj_mask, tf.bool))
+        best_iou = tf.reduce_max(broadcast_iou(
+            pred_box, true_box_flat), axis=-1)
+        ignore_mask = tf.cast(best_iou < ignore_thresh, tf.float32)
+
+        # 5. calculate all losses
+        xy_loss = obj_mask * box_loss_scale * \
+            tf.reduce_sum(tf.square(true_xy - pred_xy), axis=-1)
+        wh_loss = obj_mask * box_loss_scale * \
+            tf.reduce_sum(tf.square(true_wh - pred_wh), axis=-1)
+        obj_loss = binary_crossentropy(true_obj, pred_obj, from_logits=True)
+        obj_loss = obj_mask * obj_loss + \
+            (1 - obj_mask) * ignore_mask * obj_loss
+        # TODO: use binary_crossentropy instead
+        class_loss = obj_mask * sparse_categorical_crossentropy(
+            true_class_idx, pred_class, from_logits=True)
+
+        # 6. sum over (gridx, gridy, anchors) => (batch, )
+        xy_loss = tf.reduce_sum(xy_loss, axis=(1, 2, 3))
+        wh_loss = tf.reduce_sum(wh_loss, axis=(1, 2, 3))
+        obj_loss = tf.reduce_sum(obj_loss, axis=(1, 2, 3))
+        class_loss = tf.reduce_sum(class_loss, axis=(1, 2, 3))
+
         return xy_loss + wh_loss + obj_loss + class_loss
     return loss
 
 
-def yolo_output(outputs):
-    b, s, c = [], [], []
+def yolo_output(outputs, anchors=yolo_anchors, masks=yolo_anchor_masks):
+    # boxes, conf, type
+    b, c, t = [], [], []
 
-    o1 = yolo_boxes(outputs[0], yolo_anchors[[6, 7, 8]])
-    o2 = yolo_boxes(outputs[1], yolo_anchors[[3, 4, 5]])
-    o3 = yolo_boxes(outputs[2], yolo_anchors[[0, 1, 2]])
+    for i, output in enumerate(outputs):
+        o = yolo_boxes(output, yolo_anchors[masks[i]])
 
-    bbox = tf.concat([tf.reshape(o1[0], (tf.shape(o1[0])[0], -1,
-                                         tf.shape(o1[0])[-1])),
-                      tf.reshape(o2[0], (tf.shape(o2[0])[0], -1,
-                                         tf.shape(o2[0])[-1])),
-                      tf.reshape(o3[0], (tf.shape(o3[0])[0], -1,
-                                         tf.shape(o3[0])[-1]))],
-                     axis=1)
+        b.append(tf.reshape(o[0], (tf.shape(o[0])[0], -1, tf.shape(o[0])[-1])))
+        c.append(tf.reshape(o[1], (tf.shape(o[1])[0], -1, tf.shape(o[1])[-1])))
+        t.append(tf.reshape(o[2], (tf.shape(o[2])[0], -1, tf.shape(o[2])[-1])))
 
-    confidence = tf.concat([tf.reshape(o1[1], (tf.shape(o1[1])[0], -1,
-                                               tf.shape(o1[1])[-1])),
-                            tf.reshape(o2[1], (tf.shape(o2[1])[0], -1,
-                                               tf.shape(o2[1])[-1])),
-                            tf.reshape(o3[1], (tf.shape(o3[1])[0], -1,
-                                               tf.shape(o3[1])[-1]))],
-                           axis=1)
-
-    class_probs = tf.concat([tf.reshape(o1[2], (tf.shape(o1[2])[0], -1,
-                                                tf.shape(o1[2])[-1])),
-                             tf.reshape(o2[2], (tf.shape(o2[2])[0], -1,
-                                                tf.shape(o2[2])[-1])),
-                             tf.reshape(o3[2], (tf.shape(o3[2])[0], -1,
-                                                tf.shape(o3[2])[-1]))],
-                            axis=1)
+    bbox = tf.concat(b, axis=1)
+    confidence = tf.concat(c, axis=1)
+    class_probs = tf.concat(t, axis=1)
 
     scores = confidence * class_probs
     boxes, scores, classes, valid_detections = tf.combined_non_max_suppression(

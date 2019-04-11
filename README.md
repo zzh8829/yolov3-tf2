@@ -6,7 +6,7 @@ This repo provides a clean implementation of YoloV3 in Tensorflow 2.0 using all 
 
 - [x] Tensorflow 2.0
 - [x] `yolov3` with pre-trained Weights
-- [ ] `yolov3-tiny` with pre-trained Weights
+- [x] `yolov3-tiny` with pre-trained Weights
 - [x] Inference example
 - [ ] Transfer learning example
 - [ ] Training from scratch example
@@ -33,20 +33,29 @@ pip install -r requirements.txt
 
 ### Convert pre-trained Darknet weights
 
-```
+```bash
+# yolov3
 wget https://pjreddie.com/media/files/yolov3.weights -O data/yolov3.weights
 python convert.py
+
+# yolov3-tiny
+wget https://pjreddie.com/media/files/yolov3-tiny.weights -O data/yolov3-tiny.weights
+python convert.py --weights ./data/yolov3-tiny.weights --output ./data/yolov3-tiny.h5 --tiny
 ```
 
 ### Detection
 
-```
+```bash
+# yolov3
 python detect.py
+
+# yolov3-tiny
+python detect.py --weights ./data/yolov3-tiny.h5 --tiny
 ```
 
-### Training
+### Training (WIP)
 
-```
+``` bash
 python train.py
 ```
 
@@ -68,7 +77,8 @@ Downside is you have to re-implementing all the model.fit features
 
 ### Loading pre-trained Darknet weights
 
-very hard without compromising the model structure.
+very hard with pure functional API because the layer ordering is different in
+tf.keras and darknet. The clean solution here is creating sub-models in keras.
 
 ### tf.keras.layers.BatchNormalization
 

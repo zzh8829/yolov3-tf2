@@ -12,19 +12,23 @@ flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 def main(_argv):
     if FLAGS.tiny:
         yolo = YoloV3Tiny()
-        load_yolov3_tiny_from_darknet(yolo, FLAGS.weights)
     else:
         yolo = YoloV3()
-        load_yolov3_from_darknet(yolo, FLAGS.weights)
+    yolo.summary()
+    logging.info('model created')
 
+    load_yolov3_from_darknet(yolo, FLAGS.weights, FLAGS.tiny)
     logging.info('weights loaded')
 
     img = np.random.random((1, 320, 320, 3)).astype(np.float32)
-    o2 = yolo(img)
+    output = yolo(img)
     logging.info('sanity check passed')
 
     yolo.save_weights(FLAGS.output)
     logging.info('weights saved')
 
 if __name__ == '__main__':
-    app.run(main)
+    try:
+        app.run(main)
+    except SystemExit:
+        pass
