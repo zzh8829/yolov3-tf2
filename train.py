@@ -18,8 +18,10 @@ import yolov3_tf2.dataset as dataset
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
 flags.DEFINE_string('dataset', '', 'path to dataset')
+flags.DEFINE_enum('mode', 'test', ['scratch', 'transfer', 'test'],
+                  'Training mode')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
-flags.DEFINE_boolean('eager', False, 'train eagerly (gradient tape)')
+flags.DEFINE_boolean('eager', False, 'train eagerly with gradient tape')
 flags.DEFINE_integer('size', 416, 'image size')
 flags.DEFINE_integer('epochs', 2, 'number of epochs')
 flags.DEFINE_integer('batch_size', 8, 'batch size')
@@ -27,11 +29,11 @@ flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
 
 
 def main(_argv):
+    FLAGS.eager = True
     # train_dataset = dataset.load_tfrecord_dataset(
     #     FLAGS.dataset, FLAGS.classes)
     train_dataset = dataset.load_fake_dataset()
     train_dataset = train_dataset.shuffle(buffer_size=1024)  # TODO: not 1024
-    train_dataset = train_dataset.repeat(FLAGS.epochs)
     train_dataset = train_dataset.batch(FLAGS.batch_size)
     train_dataset = train_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
@@ -81,13 +83,15 @@ def main(_argv):
                 optimizer.apply_gradients(
                     zip(grads, model.trainable_variables))
 
+                logging.info("{}_{}, {}".format(
+                    epoch, batch, total_loss.numpy()))
                 avg_loss.update_state(total_loss)
-                logging.info("{}, {}".format(batch, avg_loss.result().numpy()))
 
+            logging.info("{}, {}".format(epoch, avg_loss.result().numpy()))
             avg_loss.reset_states()
             model.save('checkpoints/yolov3_train_{}.h5'.format(epoch))
     else:
-        model.compile(optimizer=optimizer,  loss=loss)
+        model.compile(optimizer=optimizer, loss=loss)
 
         callbacks = [
             ReduceLROnPlateau(),

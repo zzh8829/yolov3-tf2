@@ -10,11 +10,12 @@ This repo provides a clean implementation of YoloV3 in Tensorflow 2.0 using all 
 - [x] Inference example
 - [ ] Transfer learning example
 - [ ] Training from scratch example
-- [x] Eager training with `tf.GradientTape`
+- [x] Eager mode training with `tf.GradientTape`
+- [x] Graph mode training with `model.fit`
 - [x] Functional model with `tf.keras.layers`
 - [x] Input pipeline using `tf.data`
 - [x] Vectorized transformations
-- [ ] GPU accelerated
+- [x] GPU accelerated
 - [x] Fully integrated with `absl-py` abseil.io
 - [x] Clean implementation
 - [x] Following the best practices
@@ -55,6 +56,11 @@ python train.py
 
 Great addition for existing Tensorflow experts.
 Not very easy to use without some intermediate understanding of Tensorflow graphs.
+
+### GradientTape
+
+Extremely useful for debugging purpose, you can set breakpoints anywhere.
+Downside is you have to re-implementing all the model.fit features
 
 ### @tf.function
 
