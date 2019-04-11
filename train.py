@@ -19,6 +19,7 @@ flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
 flags.DEFINE_string('dataset', '', 'path to dataset')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
+flags.DEFINE_boolean('eager', False, 'train eagerly (gradient tape)')
 flags.DEFINE_integer('size', 416, 'image size')
 flags.DEFINE_integer('epochs', 2, 'number of epochs')
 flags.DEFINE_integer('batch_size', 8, 'batch size')
@@ -60,23 +61,46 @@ def main(_argv):
     model.layers[240].trainable = True  # conv2d before output
     model.layers[249].trainable = True  # conv2d output_1
 
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(lr=FLAGS.learning_rate),
-        loss=[YoloLoss(yolo_anchors[mask]) for mask in yolo_anchor_masks]
-    )
+    optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
+    loss = [YoloLoss(yolo_anchors[mask]) for mask in yolo_anchor_masks]
 
-    callbacks = [
-        ReduceLROnPlateau(),
-        EarlyStopping(),
-        ModelCheckpoint('checkpoints/yolov3_train.h5',
-                        save_best_only=True, save_weights_only=True),
-        TensorBoard(log_dir='logs')
-    ]
+    if FLAGS.eager:
+        avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)
 
-    history = model.fit(train_dataset,
-                        epochs=FLAGS.epochs,
-                        callbacks=callbacks,
-                        validation_data=val_dataset)
+        for epoch in range(FLAGS.epochs):
+            for batch, (images, labels) in enumerate(train_dataset):
+                with tf.GradientTape() as tape:
+                    outputs = model(images, training=True)
+                    regularization_loss = tf.math.add_n(model.losses)
+                    pred_loss = tf.zeros(tf.shape(images)[0])
+                    for output, label, loss_fn in zip(outputs, labels, loss):
+                        pred_loss += loss_fn(label, output)
+                    total_loss = pred_loss + regularization_loss
+
+                grads = tape.gradient(total_loss, model.trainable_variables)
+                optimizer.apply_gradients(
+                    zip(grads, model.trainable_variables))
+
+                avg_loss.update_state(total_loss)
+                logging.info("{}, {}".format(batch, avg_loss.result().numpy()))
+
+            avg_loss.reset_states()
+            model.save('checkpoints/yolov3_train_{}.h5'.format(epoch))
+    else:
+        model.compile(optimizer=optimizer,  loss=loss)
+
+        callbacks = [
+            ReduceLROnPlateau(),
+            EarlyStopping(),
+            ModelCheckpoint('checkpoints/yolov3_train.h5',
+                            save_best_only=True, save_weights_only=True),
+            TensorBoard(log_dir='logs')
+        ]
+
+        history = model.fit(train_dataset,
+                            epochs=FLAGS.epochs,
+                            callbacks=callbacks,
+                            validation_data=val_dataset)
 
 
 if __name__ == '__main__':
