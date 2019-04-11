@@ -21,6 +21,7 @@ import yolov3_tf2.dataset as dataset
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
 flags.DEFINE_string('dataset', '', 'path to dataset')
+flags.DEFINE_string('val_dataset', '', 'path to validation dataset')
 flags.DEFINE_enum('mode', 'transfer_last',
                   ['scratch', 'transfer', 'transfer_last', 'frozen'],
                   'Training mode')
@@ -42,9 +43,8 @@ def main(_argv):
         anchors = yolo_anchors
         anchor_masks = yolo_anchor_masks
 
-    # train_dataset = dataset.load_tfrecord_dataset(
-    #     FLAGS.dataset, FLAGS.classes)
-    train_dataset = dataset.load_fake_dataset()
+    train_dataset = dataset.load_tfrecord_dataset(
+        FLAGS.dataset, FLAGS.classes)
     train_dataset = train_dataset.shuffle(buffer_size=1024)  # TODO: not 1024
     train_dataset = train_dataset.batch(FLAGS.batch_size)
     train_dataset = train_dataset.map(lambda x, y: (
@@ -53,7 +53,9 @@ def main(_argv):
     train_dataset = train_dataset.prefetch(
         buffer_size=tf.data.experimental.AUTOTUNE)
 
-    val_dataset = dataset.load_fake_dataset()
+    # val_dataset = dataset.load_fake_dataset()
+    val_dataset = dataset.load_tfrecord_dataset(
+        FLAGS.val_dataset, FLAGS.classes)
     val_dataset = val_dataset.batch(FLAGS.batch_size)
     val_dataset = val_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
