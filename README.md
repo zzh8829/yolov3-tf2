@@ -8,8 +8,7 @@ This repo provides a clean implementation of YoloV3 in TensorFlow 2.0 using all 
 - [x] `yolov3` with pre-trained Weights
 - [x] `yolov3-tiny` with pre-trained Weights
 - [x] Inference example
-- [ ] Transfer learning example
-- [ ] Training from scratch example
+- [x] Transfer learning example
 - [x] Eager mode training with `tf.GradientTape`
 - [x] Graph mode training with `model.fit`
 - [x] Functional model with `tf.keras.layers`
@@ -54,10 +53,19 @@ python detect.py --image ./data/street.jpg
 python detect.py --weights ./data/yolov3-tiny.h5 --tiny
 ```
 
-### Training (WIP)
+### Training
+
+You need to generate tfrecord following the TensorFlow Object Detection API
+For example you can use [Microsoft VOTT](https://github.com/Microsoft/VoTT) to generate such dataset
+You can also use this [script](https://github.com/tensorflow/models/blob/master/research/object_detection/dataset_tools/create_pascal_tf_record.py) to create pascal voc dataset.
+
 
 ``` bash
-python train.py
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer
+
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer_last
+
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode scratch
 ```
 
 ## Command Line Args
@@ -84,7 +92,32 @@ detect.py:
     (default: './data/yolov3.h5')
 
 train.py:
-    WIP
+  --batch_size: batch size
+    (default: '8')
+    (an integer)
+  --classes: path to classes file
+    (default: './data/coco.names')
+  --dataset: path to dataset
+    (default: '')
+  --[no]eager: train eagerly with gradient tape
+    (default: 'true')
+  --epochs: number of epochs
+    (default: '2')
+    (an integer)
+  --learning_rate: learning rate
+    (default: '0.001')
+    (a number)
+  --mode: <scratch|transfer|transfer_last|frozen>: Training mode
+    (default: 'transfer_last')
+  --size: image size
+    (default: '416')
+    (an integer)
+  --[no]tiny: yolov3 or yolov3-tiny
+    (default: 'false')
+  --val_dataset: path to validation dataset
+    (default: '')
+  --weights: path to weights file
+    (default: './data/yolov3.h5')
 ```
 
 ## Implementation Details
