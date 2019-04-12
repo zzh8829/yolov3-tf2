@@ -66,6 +66,8 @@ python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~
 python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer_last
 
 python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode scratch
+
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer --weights ./data/yolov3-tiny.h5 --tiny
 ```
 
 ## Command Line Args
