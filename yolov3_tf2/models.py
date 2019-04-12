@@ -185,9 +185,7 @@ def yolo_boxes(pred, anchors, classes):
 
     # !!! grid[x][y] == (y, x)
     grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
-    grid = tf.expand_dims(tf.stack(grid, axis=-1),
-                          axis=2)  # [size, size, 1, 2]
-    grid = tf.tile(grid, (1, 1, tf.shape(anchors)[0], 1))
+    grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
 
     box_xy = (box_xy + tf.cast(grid, tf.float32)) / \
         tf.cast(grid_size, tf.float32)
@@ -202,6 +200,7 @@ def yolo_boxes(pred, anchors, classes):
 
 def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
     def yolo_loss(y_true, y_pred):
+        grid_size = tf.shape(y_pred)[1]
         # 1. transform all pred outputs
         # y_pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...cls))
         pred_box, _, _ = yolo_boxes(y_pred, anchors, classes)
@@ -220,8 +219,10 @@ def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
         box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
 
         # 3. inverting the pred box equations
-        grid_size_frac = 1 / tf.cast(tf.shape(y_pred)[1], tf.float32)
-        true_xy = (true_xy % grid_size_frac) / grid_size_frac
+        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+        grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)
+        true_xy = true_xy * tf.cast(grid_size, tf.float32) - \
+            tf.cast(grid, tf.float32)
         true_wh = tf.math.log(true_wh / anchors)
         true_wh = tf.where(tf.math.is_inf(true_wh),
                            tf.zeros_like(true_wh), true_wh)
@@ -246,14 +247,14 @@ def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
         class_loss = obj_mask * sparse_categorical_crossentropy(
             true_class_idx, pred_class, from_logits=True)
 
-        # 6. sum over (gridx, gridy, anchors) => (batch, )
+        # 6. sum over (batch, gridx, gridy, anchors) => (batch, 1)
         xy_loss = tf.reduce_sum(xy_loss, axis=(1, 2, 3))
         wh_loss = tf.reduce_sum(wh_loss, axis=(1, 2, 3))
         obj_loss = tf.reduce_sum(obj_loss, axis=(1, 2, 3))
         class_loss = tf.reduce_sum(class_loss, axis=(1, 2, 3))
 
         return xy_loss + wh_loss + obj_loss + class_loss
-    return loss
+    return yolo_loss
 
 
 def yolo_output(outputs, anchors, masks, classes):

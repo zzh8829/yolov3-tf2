@@ -14,13 +14,15 @@ from yolov3_tf2.models import (
     yolo_anchors, yolo_anchor_masks,
     yolo_tiny_anchors, yolo_tiny_anchor_masks
 )
+from yolov3_tf2.batch_norm import freeze_bn
 import yolov3_tf2.dataset as dataset
 
 
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
 flags.DEFINE_string('dataset', '', 'path to dataset')
-flags.DEFINE_enum('mode', 'test', ['scratch', 'transfer', 'test'],
+flags.DEFINE_enum('mode', 'transfer_last',
+                  ['scratch', 'transfer', 'transfer_last', 'frozen'],
                   'Training mode')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_boolean('eager', True, 'train eagerly with gradient tape')
@@ -34,11 +36,11 @@ def main(_argv):
     if FLAGS.tiny:
         model = YoloV3Tiny(FLAGS.size)
         anchors = yolo_tiny_anchors
-        masks = yolo_tiny_anchor_masks
+        anchor_masks = yolo_tiny_anchor_masks
     else:
         model = YoloV3(FLAGS.size)
         anchors = yolo_anchors
-        masks = yolo_anchor_masks
+        anchor_masks = yolo_anchor_masks
 
     # train_dataset = dataset.load_tfrecord_dataset(
     #     FLAGS.dataset, FLAGS.classes)
@@ -57,22 +59,41 @@ def main(_argv):
         dataset.transform_images(x, FLAGS.size),
         dataset.transform_targets(y, anchors, anchor_masks, 80)))
 
-    init_weights = [l.get_weights() for l in model.layers]
-    model.load_weights(FLAGS.weights)
-    # for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
-    #     l.trainable = False
-    # for i in range(185, len(model.layers)):
-    #     model.layers[i].set_weights(init_weights[i])
-    # for l in model.layers:
-    #     if l.name.startswith('batch_norm'):
-    #         l.trainable = False
-    for l in model.layers:
-        l.trainable = False
-    model.layers[240].trainable = True  # conv2d before output
-    model.layers[249].trainable = True  # conv2d output_1
+    if FLAGS.mode == 'scratch':
+        pass  # training from scratch (not recommended)
+    else:  # transfer learning mode
+        model.get_layer('yolo_body').load_weights(FLAGS.weights)
+        for l in model.get_layer('yolo_body').get_layer('yolo_darknet').layers:
+            l.trainable = False
+
+        if FLAGS.tiny:  # get initial weights
+            init_model = YoloV3Tiny(FLAGS.size)
+        else:
+            init_model = YoloV3(FLAGS.size)
+
+        if FLAGS.mode == 'transfer':  # learn all non darknet layers
+            for l in model.get_layer('yolo_body').layers:
+                if l.name != 'yolo_darknet' and l.name.startswith('yolo_'):
+                    l.set_weights(init_model.get_layer('yolo_body').get_layer(
+                        l.name).get_weights())
+        elif FLAGS.mode == 'transfer_last':  # only learn output layer
+            for l in model.get_layer('yolo_body').layers:
+                if 'yolo_output' in l.name:
+                    l.set_weights(init_model.get_layer('yolo_body').get_layer(
+                        l.name).get_weights())
+                    freeze_bn(l, False)
+                else:
+                    l.trainable = False
+                    freeze_bn(l, True)
+        elif FLAGS.mode == 'frozen':  # learn nothing
+            freeze_bn(model, True)
+            for l in model.get_layer('yolo_body').layers:
+                l.trainable = False
+
+    model = model.get_layer('yolo_body')
 
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
-    loss = [YoloLoss(anchors[mask]) for mask in masks]
+    loss = [YoloLoss(anchors[mask]) for mask in anchor_masks]
 
     if FLAGS.eager:
         avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)

@@ -14,8 +14,8 @@ class BatchNormalization(tf.keras.layers.BatchNormalization):
 
 
 def freeze_bn(model, frozen):
-    for l in model.layers:
-        if isinstance(l, tf.keras.Model):
+    if isinstance(model, tf.keras.layers.BatchNormalization):
+        model.trainable = not frozen
+    elif isinstance(model, tf.keras.Model):
+        for l in model.layers:
             freeze_bn(l, frozen)
-        elif isinstance(l, tf.keras.layers.BatchNormalization):
-            l.trainable = not frozen
