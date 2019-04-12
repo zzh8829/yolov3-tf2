@@ -10,7 +10,9 @@ from tensorflow.keras.callbacks import (
     TensorBoard
 )
 from yolov3_tf2.models import (
-    YoloV3, YoloLoss, yolo_output, yolo_anchors, yolo_anchor_masks
+    YoloV3, YoloV3Tiny, YoloLoss, yolo_output,
+    yolo_anchors, yolo_anchor_masks,
+    yolo_tiny_anchors, yolo_tiny_anchor_masks
 )
 import yolov3_tf2.dataset as dataset
 
@@ -21,7 +23,7 @@ flags.DEFINE_string('dataset', '', 'path to dataset')
 flags.DEFINE_enum('mode', 'test', ['scratch', 'transfer', 'test'],
                   'Training mode')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
-flags.DEFINE_boolean('eager', False, 'train eagerly with gradient tape')
+flags.DEFINE_boolean('eager', True, 'train eagerly with gradient tape')
 flags.DEFINE_integer('size', 416, 'image size')
 flags.DEFINE_integer('epochs', 2, 'number of epochs')
 flags.DEFINE_integer('batch_size', 8, 'batch size')
@@ -29,7 +31,15 @@ flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
 
 
 def main(_argv):
-    FLAGS.eager = True
+    if FLAGS.tiny:
+        model = YoloV3Tiny(FLAGS.size)
+        anchors = yolo_tiny_anchors
+        masks = yolo_tiny_anchor_masks
+    else:
+        model = YoloV3(FLAGS.size)
+        anchors = yolo_anchors
+        masks = yolo_anchor_masks
+
     # train_dataset = dataset.load_tfrecord_dataset(
     #     FLAGS.dataset, FLAGS.classes)
     train_dataset = dataset.load_fake_dataset()
@@ -37,7 +47,7 @@ def main(_argv):
     train_dataset = train_dataset.batch(FLAGS.batch_size)
     train_dataset = train_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
-        dataset.transform_targets(y, yolo_anchors, yolo_anchor_masks, 80)))
+        dataset.transform_targets(y, anchors, anchor_masks, 80)))
     train_dataset = train_dataset.prefetch(
         buffer_size=tf.data.experimental.AUTOTUNE)
 
@@ -45,12 +55,10 @@ def main(_argv):
     val_dataset = val_dataset.batch(FLAGS.batch_size)
     val_dataset = val_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
-        dataset.transform_targets(y, yolo_anchors, yolo_anchor_masks, 80)))
+        dataset.transform_targets(y, anchors, anchor_masks, 80)))
 
-    model = YoloV3(FLAGS.size)
     init_weights = [l.get_weights() for l in model.layers]
     model.load_weights(FLAGS.weights)
-
     # for l in model.layers[:185]:  # darknet-53 layers TODO: refactor
     #     l.trainable = False
     # for i in range(185, len(model.layers)):
@@ -64,7 +72,7 @@ def main(_argv):
     model.layers[249].trainable = True  # conv2d output_1
 
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
-    loss = [YoloLoss(yolo_anchors[mask]) for mask in yolo_anchor_masks]
+    loss = [YoloLoss(anchors[mask]) for mask in masks]
 
     if FLAGS.eager:
         avg_loss = tf.keras.metrics.Mean('loss', dtype=tf.float32)

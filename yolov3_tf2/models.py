@@ -22,11 +22,13 @@ from .utils import broadcast_iou
 
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
-                         (59, 119), (116, 90), (156, 198), (373, 326)]) / 416.0
+                         (59, 119), (116, 90), (156, 198), (373, 326)],
+                        np.float32) / 416
 yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 
 yolo_tiny_anchors = np.array([(10, 14), (23, 27), (37, 58),
-                              (81, 82), (135, 169),  (344, 319)]) / 416.0
+                              (81, 82), (135, 169),  (344, 319)],
+                             np.float32) / 416
 yolo_tiny_anchor_masks = np.array([[3, 4, 5], [0, 1, 2]])
 
 
@@ -104,7 +106,7 @@ def YoloOutput(filters, anchors, classes, name=None):
     return yolo_output
 
 
-def YoloV3(size=None, channels=3, masks=yolo_anchor_masks, classes=80):
+def YoloBody(size=None, channels=3, masks=yolo_anchor_masks, classes=80):
     x = inputs = Input([size, size, channels])
 
     x_36, x_61, x = Darknet(name='yolo_darknet')(x)
@@ -118,7 +120,7 @@ def YoloV3(size=None, channels=3, masks=yolo_anchor_masks, classes=80):
     x = YoloConv(128, name='yolo_conv_2')((x, x_36))
     output_2 = YoloOutput(128, len(masks[2]), classes, name='yolo_output_2')(x)
 
-    return Model(inputs, [output_0, output_1, output_2])
+    return Model(inputs, [output_0, output_1, output_2], name='yolo_body')
 
 
 def DarknetTiny(name=None):
@@ -157,8 +159,8 @@ def YoloConvTiny(filters, name=None):
     return yolo_conv
 
 
-def YoloV3Tiny(size=None, channels=3,
-               masks=yolo_tiny_anchor_masks, classes=80):
+def YoloBodyTiny(size=None, channels=3,
+                 masks=yolo_tiny_anchor_masks, classes=80):
     x = inputs = Input(shape=[size, size, channels])
     x_8, x = DarknetTiny(name='yolo_darknet')(x)
 
@@ -168,10 +170,10 @@ def YoloV3Tiny(size=None, channels=3,
     x = YoloConvTiny(128, name='yolo_conv_1')((x, x_8))
     output_1 = YoloOutput(128, len(masks[1]), classes, name='yolo_output_1')(x)
 
-    return Model(inputs, [output_0, output_1])
+    return Model(inputs, [output_0, output_1], name='yolo_body')
 
 
-def yolo_boxes(pred, anchors, classes=80):
+def yolo_boxes(pred, anchors, classes):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
     grid_size = tf.shape(pred)[1]
     box_xy, box_wh, objectness, class_probs = tf.split(
@@ -202,7 +204,7 @@ def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
     def yolo_loss(y_true, y_pred):
         # 1. transform all pred outputs
         # y_pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...cls))
-        pred_box, _, _ = yolo_boxes(y_pred, anchors)
+        pred_box, _, _ = yolo_boxes(y_pred, anchors, classes)
         pred_xy, pred_wh, pred_obj, pred_class = tf.split(
             y_pred, (2, 2, 1, classes), axis=-1)
         pred_xy = tf.sigmoid(pred_xy)
@@ -254,13 +256,12 @@ def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
     return loss
 
 
-def yolo_output(outputs, anchors=yolo_anchors, masks=yolo_anchor_masks):
+def yolo_output(outputs, anchors, masks, classes):
     # boxes, conf, type
     b, c, t = [], [], []
 
     for i, output in enumerate(outputs):
-        o = yolo_boxes(output, yolo_anchors[masks[i]])
-
+        o = yolo_boxes(output, anchors[masks[i]], classes)
         b.append(tf.reshape(o[0], (tf.shape(o[0])[0], -1, tf.shape(o[0])[-1])))
         c.append(tf.reshape(o[1], (tf.shape(o[1])[0], -1, tf.shape(o[1])[-1])))
         t.append(tf.reshape(o[2], (tf.shape(o[2])[0], -1, tf.shape(o[2])[-1])))
@@ -271,8 +272,9 @@ def yolo_output(outputs, anchors=yolo_anchors, masks=yolo_anchor_masks):
 
     scores = confidence * class_probs
     boxes, scores, classes, valid_detections = tf.combined_non_max_suppression(
-        boxes=tf.reshape(bbox, (bbox.shape[0], -1, 1, 4)),
-        scores=tf.reshape(scores, (scores.shape[0], -1, scores.shape[-1])),
+        boxes=tf.reshape(bbox, (tf.shape(bbox)[0], -1, 1, 4)),
+        scores=tf.reshape(
+            scores, (tf.shape(scores)[0], -1, tf.shape(scores)[-1])),
         max_output_size_per_class=100,
         max_total_size=100,
         iou_threshold=0.5,
@@ -280,3 +282,19 @@ def yolo_output(outputs, anchors=yolo_anchors, masks=yolo_anchor_masks):
     )
 
     return boxes, scores, classes, valid_detections
+
+
+def YoloV3(size=None, channels=3, anchors=yolo_anchors,
+           masks=yolo_anchor_masks, classes=80):
+    x = inputs = Input([size, size, channels])
+    x = YoloBody(size, channels, masks, classes)(inputs)
+    x = Lambda(lambda x: yolo_output(x, anchors, masks, classes))(x)
+    return Model(inputs, x, name='yolov3')
+
+
+def YoloV3Tiny(size=None, channels=3, anchors=yolo_tiny_anchors,
+               masks=yolo_tiny_anchor_masks, classes=80):
+    x = inputs = Input([size, size, channels])
+    x = YoloBodyTiny(size, channels, masks, classes)(inputs)
+    x = Lambda(lambda x: yolo_output(x, anchors, masks, classes))(x)
+    return Model(inputs, x, name='yolov3_tiny')

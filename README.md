@@ -1,10 +1,10 @@
-# YoloV3 Implemented in Tensorflow 2.0
+# YoloV3 Implemented in TensorFlow 2.0
 
-This repo provides a clean implementation of YoloV3 in Tensorflow 2.0 using all the best practices.
+This repo provides a clean implementation of YoloV3 in TensorFlow 2.0 using all the best practices.
 
 ## Key Features
 
-- [x] Tensorflow 2.0
+- [x] TensorFlow 2.0
 - [x] `yolov3` with pre-trained Weights
 - [x] `yolov3-tiny` with pre-trained Weights
 - [x] Inference example
@@ -16,18 +16,19 @@ This repo provides a clean implementation of YoloV3 in Tensorflow 2.0 using all 
 - [x] Input pipeline using `tf.data`
 - [x] Vectorized transformations
 - [x] GPU accelerated
-- [x] Fully integrated with `absl-py` abseil.io
+- [x] Fully integrated with `absl-py` from [abseil.io](https://abseil.io)
 - [x] Clean implementation
 - [x] Following the best practices
 - [x] MIT License
 
 ![demo](https://raw.githubusercontent.com/zzh8829/yolov3-tf2/master/data/meme_out.jpg)
+![demo](https://raw.githubusercontent.com/zzh8829/yolov3-tf2/master/data/street_out.jpg)
 
 ## Usage
 
 ### Installation
 
-```
+```bash
 pip install -r requirements.txt
 ```
 
@@ -47,7 +48,7 @@ python convert.py --weights ./data/yolov3-tiny.weights --output ./data/yolov3-ti
 
 ```bash
 # yolov3
-python detect.py
+python detect.py --image ./data/street.jpg
 
 # yolov3-tiny
 python detect.py --weights ./data/yolov3-tiny.h5 --tiny
@@ -59,12 +60,39 @@ python detect.py --weights ./data/yolov3-tiny.h5 --tiny
 python train.py
 ```
 
+## Command Line Args
+
+```bash
+convert.py:
+  --output: path to output
+    (default: './data/yolov3.h5')
+  --[no]tiny: yolov3 or yolov3-tiny
+    (default: 'false')
+  --weights: path to weights file
+    (default: './data/yolov3.weights')
+
+detect.py:
+  --classes: path to classes file
+    (default: './data/coco.names')
+  --image: path to input image
+    (default: './data/girl.png')
+  --output: path to output image
+    (default: './data/output.jpg')
+  --[no]tiny: yolov3 or yolov3-tiny
+    (default: 'false')
+  --weights: path to weights file
+    (default: './data/yolov3.h5')
+
+train.py:
+    WIP
+```
+
 ## Implementation Details
 
 ### Eager execution
 
-Great addition for existing Tensorflow experts.
-Not very easy to use without some intermediate understanding of Tensorflow graphs.
+Great addition for existing TensorFlow experts.
+Not very easy to use without some intermediate understanding of TensorFlow graphs.
 
 ### GradientTape
 
