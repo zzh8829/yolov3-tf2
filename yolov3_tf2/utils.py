@@ -126,3 +126,10 @@ def draw_labels(x, y, class_names):
                           x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL,
                           1, (0, 0, 255), 2)
     return img
+
+
+def freeze_all(model, frozen=True):
+    model.trainable = not frozen
+    if isinstance(model, tf.keras.Model):
+        for l in model.layers:
+            freeze_all(l, frozen)

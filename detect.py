@@ -12,7 +12,8 @@ from yolov3_tf2.dataset import transform_images
 from yolov3_tf2.utils import draw_outputs
 
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
-flags.DEFINE_string('weights', './data/yolov3.h5', 'path to weights file')
+flags.DEFINE_string('weights', './checkpoints/yolov3.tf',
+                    'path to weights file')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_string('image', './data/girl.png', 'path to input image')
 flags.DEFINE_string('output', './output.jpg', 'path to output image')
@@ -24,7 +25,7 @@ def main(_argv):
     else:
         yolo = YoloV3()
 
-    yolo.get_layer('yolo_body').load_weights(FLAGS.weights)
+    yolo.load_weights(FLAGS.weights)
     logging.info('weights loaded')
 
     class_names = [c.strip() for c in open(FLAGS.classes).readlines()]

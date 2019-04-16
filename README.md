@@ -40,42 +40,88 @@ python convert.py
 
 # yolov3-tiny
 wget https://pjreddie.com/media/files/yolov3-tiny.weights -O data/yolov3-tiny.weights
-python convert.py --weights ./data/yolov3-tiny.weights --output ./data/yolov3-tiny.h5 --tiny
+python convert.py --weights ./data/yolov3-tiny.weights --output ./checkpoints/yolov3-tiny.tf --tiny
 ```
 
 ### Detection
 
 ```bash
 # yolov3
-python detect.py --image ./data/street.jpg
+python detect.py --image ./data/meme.jpg
 
 # yolov3-tiny
-python detect.py --weights ./data/yolov3-tiny.h5 --tiny
+python detect.py --weights ./checkpoints/yolov3-tiny.tf --tiny --image ./data/street.jpg
 ```
 
 ### Training
 
-You need to generate tfrecord following the TensorFlow Object Detection API
-For example you can use [Microsoft VOTT](https://github.com/Microsoft/VoTT) to generate such dataset
-You can also use this [script](https://github.com/tensorflow/models/blob/master/research/object_detection/dataset_tools/create_pascal_tf_record.py) to create pascal voc dataset.
+You need to generate tfrecord following the TensorFlow Object Detection API.
+For example you can use [Microsoft VOTT](https://github.com/Microsoft/VoTT) to generate such dataset.
+You can also use this [script](https://github.com/tensorflow/models/blob/master/research/object_detection/dataset_tools/create_pascal_tf_record.py) to create the pascal voc dataset.
 
 
 ``` bash
-python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --mode eager_tf --transfer fine_tune
 
-python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer_last
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --mode fit --transfer none
 
-python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode scratch
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --mode fit --transfer no_output
 
-python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 100 --noeager --mode transfer --weights ./data/yolov3-tiny.h5 --tiny
+python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 10 --mode eager_fit --transfer fine_tune --weights ./checkpoints/yolov3-tiny.tf --tiny
 ```
 
-## Command Line Args
+## Implementation Details
+
+### Eager execution
+
+Great addition for existing TensorFlow experts.
+Not very easy to use without some intermediate understanding of TensorFlow graphs.
+It is annoying when you accidentally use incompatible features like tensor.shape[0]
+or some sort of python control flow that works fine in eager mode, but
+totally breaks down when you try to compile the model to graph.
+
+### GradientTape
+
+Extremely useful for debugging purpose, you can set breakpoints anywhere.
+You can compile all the keras fitting functionalities with gradient tape using the
+`run_eagerly` argument in model.compile. From my limited testing, GradientTape is
+definitely a bit slower than the normal graph mode. So I recommend eager GradientTape
+for debugging and graph mode for real training.
+
+### @tf.function
+
+@tf.function is very cool. It's like an in-between version of eager and graph.
+You can step through the function by disabling tf.function and then gain
+performance when you enable it in production.
+
+### absl.py (abseil)
+
+Absolutely amazing. If you don't know already, absl.py is officially used by
+internal projects at Google. It standardizes application interface for Python
+and many other languages. After using it within Google, I was so excited
+to hear abseil going open source. It includes many decades of best practices
+learned from creating large size scalable applications. I literally have
+nothing bad to say about it, strongly recommend absl.py to everybody.
+
+### Loading pre-trained Darknet weights
+
+very hard with pure functional API because the layer ordering is different in
+tf.keras and darknet. The clean solution here is creating sub-models in keras.
+Keras is not able to save nested model in h5 format properly, TF Checkpoint is
+recommended since its offically supported by TensorFlow.
+
+### tf.keras.layers.BatchNormalization
+
+It doesn't work very well for transfer learning. There are many articles and
+github issues all over the internet. I used a simple hack to make it work nicer
+on transfer learning with small batches.
+
+## Command Line Args Reference
 
 ```bash
 convert.py:
   --output: path to output
-    (default: './data/yolov3.h5')
+    (default: './checkpoints/yolov3.tf')
   --[no]tiny: yolov3 or yolov3-tiny
     (default: 'false')
   --weights: path to weights file
@@ -87,13 +133,12 @@ detect.py:
   --image: path to input image
     (default: './data/girl.png')
   --output: path to output image
-    (default: './data/output.jpg')
+    (default: './output.jpg')
   --[no]tiny: yolov3 or yolov3-tiny
     (default: 'false')
   --weights: path to weights file
-    (default: './data/yolov3.h5')
+    (default: './checkpoints/yolov3.tf')
 
-train.py:
   --batch_size: batch size
     (default: '8')
     (an integer)
@@ -101,51 +146,28 @@ train.py:
     (default: './data/coco.names')
   --dataset: path to dataset
     (default: '')
-  --[no]eager: train eagerly with gradient tape
-    (default: 'true')
   --epochs: number of epochs
     (default: '2')
     (an integer)
   --learning_rate: learning rate
     (default: '0.001')
     (a number)
-  --mode: <scratch|transfer|transfer_last|frozen>: Training mode
-    (default: 'transfer_last')
+  --mode: <fit|eager_fit|eager_tf>: fit: model.fit, eager_fit: model.fit(run_eagerly=True), eager_tf: custom GradientTape
+    (default: 'fit')
   --size: image size
     (default: '416')
     (an integer)
   --[no]tiny: yolov3 or yolov3-tiny
     (default: 'false')
+  --transfer: <none|darknet|no_output|frozen|fine_tune>: none: Training from scratch, darknet: Transfer darknet, no_output: Transfer all but output, frozen: Transfer and
+    freeze all, fine_tune: Transfer all and freeze darknet only
+    (default: 'none')
   --val_dataset: path to validation dataset
     (default: '')
   --weights: path to weights file
-    (default: './data/yolov3.h5')
+    (default: './checkpoints/yolov3.tf')
 ```
 
-## Implementation Details
-
-### Eager execution
-
-Great addition for existing TensorFlow experts.
-Not very easy to use without some intermediate understanding of TensorFlow graphs.
-
-### GradientTape
-
-Extremely useful for debugging purpose, you can set breakpoints anywhere.
-Downside is you have to re-implementing all the model.fit features
-
-### @tf.function
-
-@tf.function is very cool. Do have some caveats tho.
-
-### Loading pre-trained Darknet weights
-
-very hard with pure functional API because the layer ordering is different in
-tf.keras and darknet. The clean solution here is creating sub-models in keras.
-
-### tf.keras.layers.BatchNormalization
-
-It doesn't work very well for transfer learning
 
 ## References
 

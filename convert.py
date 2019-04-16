@@ -5,7 +5,7 @@ from yolov3_tf2.models import YoloV3, YoloV3Tiny
 from yolov3_tf2.utils import load_darknet_weights
 
 flags.DEFINE_string('weights', './data/yolov3.weights', 'path to weights file')
-flags.DEFINE_string('output', './data/yolov3.h5', 'path to output')
+flags.DEFINE_string('output', './checkpoints/yolov3.tf', 'path to output')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 
 
@@ -16,8 +16,6 @@ def main(_argv):
         yolo = YoloV3()
     yolo.summary()
     logging.info('model created')
-
-    yolo = yolo.get_layer('yolo_body')  # TODO: nested model can't be saved rn
 
     load_darknet_weights(yolo, FLAGS.weights, FLAGS.tiny)
     logging.info('weights loaded')
