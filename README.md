@@ -27,8 +27,17 @@ This repo provides a clean implementation of YoloV3 in TensorFlow 2.0 using all 
 
 ### Installation
 
+#### Pip
+
 ```bash
 pip install -r requirements.txt
+```
+
+#### Conda
+
+```bash
+conda env create -f environment.yml
+conda activate yolov3-tf2
 ```
 
 ### Convert pre-trained Darknet weights
