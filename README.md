@@ -13,6 +13,7 @@ This repo provides a clean implementation of YoloV3 in TensorFlow 2.0 using all 
 - [x] Graph mode training with `model.fit`
 - [x] Functional model with `tf.keras.layers`
 - [x] Input pipeline using `tf.data`
+- [x] Tensorflow Serving
 - [x] Vectorized transformations
 - [x] GPU accelerated
 - [x] Fully integrated with `absl-py` from [abseil.io](https://abseil.io)
@@ -78,6 +79,25 @@ python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~
 
 python train.py --batch_size 8 --dataset ~/Data/voc2012.tfrecord --val_dataset ~/Data/voc2012_val.tfrecord --epochs 10 --mode eager_fit --transfer fine_tune --weights ./checkpoints/yolov3-tiny.tf --tiny
 ```
+
+### Tensorflow Serving
+You can export the model to tf serving
+```
+python export_tfserving.py --output serving/yolov3/1/
+# verify tfserving graph
+saved_model_cli show --dir serving/yolov3/1/ --tag_set serve --signature_def serving_default
+```
+
+The inputs are preprocessed images (see `dataset.transform_iamges`)
+
+outputs are
+```
+yolo_nms_0: bounding boxes
+yolo_nms_0: scores
+yolo_nms_0: classes
+yolo_nms_0: numbers of valid detections
+```
+
 
 ## Implementation Details
 
