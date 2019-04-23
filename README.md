@@ -104,14 +104,23 @@ yolo_nms_2: classes
 yolo_nms_3: numbers of valid detections
 ```
 
-## Benchmark
+## Benchmark (Incomplete)
 
-### Macbook Pro 13 (2015 model, 2.7ghz i5)
-Detection:
-|           | 416x416 | 320x320 | 608x608 |
-|-----------|---------|---------|---------|
-| Yolo      | 1000ms  | ?       | ?       |
-| Yolo-Tiny | 100ms   | ?       | ?       |
+Numbers are obtained with rough calculations from `detect_video.py`
+
+### Macbook Pro 13 (2.7GHz i5)
+
+| Detection   | 416x416 | 320x320 | 608x608 |
+|-------------|---------|---------|---------|
+| YoloV3      | 1000ms  | ?       | ?       |
+| YoloV3-Tiny | 100ms   | ?       | ?       |
+
+### AWS g3.4xlarge (Tesla M60)
+
+| Detection   | 416x416 | 320x320 | 608x608 |
+|-------------|---------|---------|---------|
+| YoloV3      | 66ms    | ?       | ?       |
+| YoloV3-Tiny | 14ms    | ?       | ?       |
 
 ## Implementation Details
 
