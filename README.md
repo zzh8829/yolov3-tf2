@@ -61,6 +61,12 @@ python detect.py --image ./data/meme.jpg
 
 # yolov3-tiny
 python detect.py --weights ./checkpoints/yolov3-tiny.tf --tiny --image ./data/street.jpg
+
+# webcam
+python detect_video.py --video 0
+
+# video file
+python detect_video.py --video path_to_file.mp4 --weights ./checkpoints/yolov3-tiny.tf --tiny
 ```
 
 ### Training
@@ -98,6 +104,14 @@ yolo_nms_2: classes
 yolo_nms_3: numbers of valid detections
 ```
 
+## Benchmark
+
+### Macbook Pro 13 (2015 model, 2.7ghz i5)
+Detection:
+|           | 416x416 | 320x320 | 608x608 |
+|-----------|---------|---------|---------|
+| Yolo      | 1000ms  | ?       | ?       |
+| Yolo-Tiny | 100ms   | ?       | ?       |
 
 ## Implementation Details
 
@@ -108,6 +122,14 @@ Not very easy to use without some intermediate understanding of TensorFlow graph
 It is annoying when you accidentally use incompatible features like tensor.shape[0]
 or some sort of python control flow that works fine in eager mode, but
 totally breaks down when you try to compile the model to graph.
+
+### model(x) vs. model.predict(x)
+
+When calling model(x) directly, we are executing the graph in eager mode. For
+`model.predict`, tf actually compiles the graph on the first run and then
+execute in graph mode. So if you are only running the model once, `model(x)` is
+faster since there is no compilation needed. Otherwise, `model.predict` or
+using exported SavedModel graph is much faster.
 
 ### GradientTape
 
