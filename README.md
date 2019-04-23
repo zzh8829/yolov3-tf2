@@ -112,15 +112,22 @@ Numbers are obtained with rough calculations from `detect_video.py`
 
 | Detection   | 416x416 | 320x320 | 608x608 |
 |-------------|---------|---------|---------|
-| YoloV3      | 1000ms  | ?       | ?       |
-| YoloV3-Tiny | 100ms   | ?       | ?       |
+| YoloV3      | 1000ms  | 500ms   | 1546ms  |
+| YoloV3-Tiny | 100ms   | 58ms    | 208ms   |
+
+### Desktop (GTX 970)
+
+| Detection   | 416x416 | 320x320 | 608x608 |
+|-------------|---------|---------|---------|
+| YoloV3      | ?       | ?       | ?       |
+| YoloV3-Tiny | ?       | ?       | ?       |
 
 ### AWS g3.4xlarge (Tesla M60)
 
 | Detection   | 416x416 | 320x320 | 608x608 |
 |-------------|---------|---------|---------|
-| YoloV3      | 66ms    | ?       | ?       |
-| YoloV3-Tiny | 14ms    | ?       | ?       |
+| YoloV3      | 66ms    | 50ms    | 123ms   |
+| YoloV3-Tiny | 15ms    | 10ms    | 24ms    |
 
 ## Implementation Details
 
