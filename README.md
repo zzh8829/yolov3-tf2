@@ -93,9 +93,9 @@ The inputs are preprocessed images (see `dataset.transform_iamges`)
 outputs are
 ```
 yolo_nms_0: bounding boxes
-yolo_nms_0: scores
-yolo_nms_0: classes
-yolo_nms_0: numbers of valid detections
+yolo_nms_1: scores
+yolo_nms_2: classes
+yolo_nms_3: numbers of valid detections
 ```
 
 
@@ -168,6 +168,7 @@ detect.py:
   --weights: path to weights file
     (default: './checkpoints/yolov3.tf')
 
+train.py:
   --batch_size: batch size
     (default: '8')
     (an integer)
