@@ -104,7 +104,7 @@ yolo_nms_2: classes
 yolo_nms_3: numbers of valid detections
 ```
 
-## Benchmark (Incomplete)
+## Benchmark (No Training Yet)
 
 Numbers are obtained with rough calculations from `detect_video.py`
 
@@ -115,12 +115,12 @@ Numbers are obtained with rough calculations from `detect_video.py`
 | YoloV3      | 1000ms  | 500ms   | 1546ms  |
 | YoloV3-Tiny | 100ms   | 58ms    | 208ms   |
 
-### Desktop (GTX 970)
+### Desktop PC (GTX 970)
 
 | Detection   | 416x416 | 320x320 | 608x608 |
 |-------------|---------|---------|---------|
-| YoloV3      | ?       | ?       | ?       |
-| YoloV3-Tiny | ?       | ?       | ?       |
+| YoloV3      | 74ms    | 57ms    | 129ms   |
+| YoloV3-Tiny | 18ms    | 15ms    | 28ms    |
 
 ### AWS g3.4xlarge (Tesla M60)
 
@@ -128,6 +128,10 @@ Numbers are obtained with rough calculations from `detect_video.py`
 |-------------|---------|---------|---------|
 | YoloV3      | 66ms    | 50ms    | 123ms   |
 | YoloV3-Tiny | 15ms    | 10ms    | 24ms    |
+
+Darknet version of YoloV3 at 416x416 takes 29ms on Titan X.
+Considering Titan X has about double the benchmark of Tesla M60,
+Performance-wise this implementation is pretty comparable.
 
 ## Implementation Details
 
