@@ -42,8 +42,8 @@ def main(_argv):
     logging.info('detections:')
     for i in range(nums[0]):
         logging.info('\t{}, {}, {}'.format(class_names[int(classes[0][i])],
-                                           scores[0][i].numpy(),
-                                           boxes[0][i].numpy()))
+                                           np.array(scores[0][i]),
+                                           np.array(boxes[0][i])))
 
     img = cv2.imread(FLAGS.image)
     img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
