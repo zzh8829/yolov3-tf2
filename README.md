@@ -149,21 +149,23 @@ When calling model(x) directly, we are executing the graph in eager mode. For
 `model.predict`, tf actually compiles the graph on the first run and then
 execute in graph mode. So if you are only running the model once, `model(x)` is
 faster since there is no compilation needed. Otherwise, `model.predict` or
-using exported SavedModel graph is much faster.
+using exported SavedModel graph is much faster (by 2x).
 
 ### GradientTape
 
 Extremely useful for debugging purpose, you can set breakpoints anywhere.
 You can compile all the keras fitting functionalities with gradient tape using the
-`run_eagerly` argument in model.compile. From my limited testing, GradientTape is
-definitely a bit slower than the normal graph mode. So I recommend eager GradientTape
-for debugging and graph mode for real training.
+`run_eagerly` argument in model.compile. From my limited testing, all training methods
+including GradientTape, keras.fit, eager or not yeilds similar performance. But graph
+mode is still preferred since it's a tiny bit more efficient.
 
 ### @tf.function
 
 @tf.function is very cool. It's like an in-between version of eager and graph.
 You can step through the function by disabling tf.function and then gain
-performance when you enable it in production.
+performance when you enable it in production. Important note, you should not
+pass any non-tensor parameter to @tf.function, it will cause re-compilation
+on every call. I am not sure whats the best way other than using globals.
 
 ### absl.py (abseil)
 
