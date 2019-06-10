@@ -38,9 +38,12 @@ flags.DEFINE_integer('size', 416, 'image size')
 flags.DEFINE_integer('epochs', 2, 'number of epochs')
 flags.DEFINE_integer('batch_size', 8, 'batch size')
 flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
+flags.DEFINE_float('gpu_fraction', 0.7, 'set gpu fraction')
 
 
 def main(_argv):
+    if tf.test.is_gpu_available():
+        tf.config.gpu.set_per_process_memory_fraction(FLAGS.gpu_fraction)
     if FLAGS.tiny:
         model = YoloV3Tiny(FLAGS.size, training=True)
         anchors = yolo_tiny_anchors
