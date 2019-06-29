@@ -17,12 +17,9 @@ flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_string('image', './data/girl.png', 'path to input image')
 flags.DEFINE_string('output', './output.jpg', 'path to output image')
-flags.DEFINE_float('gpu_fraction', 0.7, 'set gpu fraction')
 
 
 def main(_argv):
-    if tf.test.is_gpu_available():
-        tf.config.gpu.set_per_process_memory_fraction(FLAGS.gpu_fraction)
     if FLAGS.tiny:
         yolo = YoloV3Tiny()
     else:

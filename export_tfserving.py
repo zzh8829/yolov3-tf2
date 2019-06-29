@@ -19,7 +19,6 @@ flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_string('output', './serving/yolov3/1', 'path to saved_model')
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('image', './data/girl.png', 'path to input image')
-flags.DEFINE_float('gpu_fraction', 0.7, 'set gpu fraction')
 
 
 # TODO: remove this after upstream fix
@@ -46,8 +45,6 @@ def trace_model_call(model):
 
 
 def main(_argv):
-    if tf.test.is_gpu_available():
-        tf.config.gpu.set_per_process_memory_fraction(FLAGS.gpu_fraction)
     if FLAGS.tiny:
         yolo = YoloV3Tiny()
     else:
