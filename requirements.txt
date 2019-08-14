@@ -1,2 +1,2 @@
-tensorflow-gpu==2.0.0a0
-opencv-python==4.0.0.21
+tensorflow==2.0.0b1
+opencv-python==4.1.0.25

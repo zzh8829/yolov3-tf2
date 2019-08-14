@@ -189,6 +189,26 @@ It doesn't work very well for transfer learning. There are many articles and
 github issues all over the internet. I used a simple hack to make it work nicer
 on transfer learning with small batches.
 
+### What is the output of transform_targets ???
+
+I know it's very confusion but the output is tuple of shape
+```
+(
+  [N, 13, 13, 3, 6],
+  [N, 26, 26, 3, 6],
+  [N, 52, 52, 3, 6]
+)
+```
+where N is the number of labels in batch and the last dimension "6" represents
+`[x, y, w, h, obj, class]` of the bounding boxes.
+
+### IOU and Score Threshold
+
+the default threshold is 0.5 for both IOU and score, you can adjust them
+according to your need by setting `--yolo_iou_threshold` and
+`--yolo_score_threshold` flags
+
+
 ## Command Line Args Reference
 
 ```bash
@@ -199,6 +219,9 @@ convert.py:
     (default: 'false')
   --weights: path to weights file
     (default: './data/yolov3.weights')
+  --num_classes: number of classes in the model
+    (default: '80')
+    (an integer)
 
 detect.py:
   --classes: path to classes file
@@ -211,6 +234,9 @@ detect.py:
     (default: 'false')
   --weights: path to weights file
     (default: './checkpoints/yolov3.tf')
+  --num_classes: number of classes in the model
+    (default: '80')
+    (an integer)
 
 train.py:
   --batch_size: batch size
@@ -228,13 +254,16 @@ train.py:
     (a number)
   --mode: <fit|eager_fit|eager_tf>: fit: model.fit, eager_fit: model.fit(run_eagerly=True), eager_tf: custom GradientTape
     (default: 'fit')
+  --num_classes: number of classes in the model
+    (default: '80')
+    (an integer)
   --size: image size
     (default: '416')
     (an integer)
   --[no]tiny: yolov3 or yolov3-tiny
     (default: 'false')
-  --transfer: <none|darknet|no_output|frozen|fine_tune>: none: Training from scratch, darknet: Transfer darknet, no_output: Transfer all but output, frozen: Transfer and
-    freeze all, fine_tune: Transfer all and freeze darknet only
+  --transfer: <none|darknet|no_output|frozen|fine_tune>: none: Training from scratch, darknet: Transfer darknet, no_output: Transfer all but output, frozen: Transfer and freeze all,
+    fine_tune: Transfer all and freeze darknet only
     (default: 'none')
   --val_dataset: path to validation dataset
     (default: '')

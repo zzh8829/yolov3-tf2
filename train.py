@@ -38,15 +38,17 @@ flags.DEFINE_integer('size', 416, 'image size')
 flags.DEFINE_integer('epochs', 2, 'number of epochs')
 flags.DEFINE_integer('batch_size', 8, 'batch size')
 flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
+flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 
 
 def main(_argv):
     if FLAGS.tiny:
-        model = YoloV3Tiny(FLAGS.size, training=True)
+        model = YoloV3Tiny(FLAGS.size, training=True,
+                           classes=FLAGS.num_classes)
         anchors = yolo_tiny_anchors
         anchor_masks = yolo_tiny_anchor_masks
     else:
-        model = YoloV3(FLAGS.size, training=True)
+        model = YoloV3(FLAGS.size, training=True, classes=FLAGS.num_classes)
         anchors = yolo_anchors
         anchor_masks = yolo_anchor_masks
 
@@ -83,9 +85,11 @@ def main(_argv):
         else:
             # reset top layers
             if FLAGS.tiny:  # get initial weights
-                init_model = YoloV3Tiny(FLAGS.size, training=True)
+                init_model = YoloV3Tiny(
+                    FLAGS.size, training=True, classes=FLAGS.num_classes)
             else:
-                init_model = YoloV3(FLAGS.size, training=True)
+                init_model = YoloV3(
+                    FLAGS.size, training=True, classes=FLAGS.num_classes)
 
             if FLAGS.transfer == 'darknet':
                 for l in model.layers:
@@ -103,7 +107,8 @@ def main(_argv):
                         freeze_all(l)
 
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
-    loss = [YoloLoss(anchors[mask]) for mask in anchor_masks]
+    loss = [YoloLoss(anchors[mask], classes=FLAGS.num_classes)
+            for mask in anchor_masks]
 
     if FLAGS.mode == 'eager_tf':
         # Eager mode is great for debugging
