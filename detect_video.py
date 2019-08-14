@@ -17,13 +17,14 @@ flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_string('video', './data/video.mp4',
                     'path to video file or number for webcam)')
+flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 
 
 def main(_argv):
     if FLAGS.tiny:
-        yolo = YoloV3Tiny()
+        yolo = YoloV3Tiny(classes=FLAGS.num_classes)
     else:
-        yolo = YoloV3()
+        yolo = YoloV3(classes=FLAGS.num_classes)
 
     yolo.load_weights(FLAGS.weights)
     logging.info('weights loaded')

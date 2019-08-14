@@ -1,3 +1,5 @@
+from absl import flags
+from absl.flags import FLAGS
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model
@@ -20,6 +22,8 @@ from tensorflow.keras.losses import (
 from .batch_norm import BatchNormalization
 from .utils import broadcast_iou
 
+flags.DEFINE_float('yolo_iou_threshold', 0.5, 'iou threshold')
+flags.DEFINE_float('yolo_score_threshold', 0.5, 'score threshold')
 
 yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
                          (59, 119), (116, 90), (156, 198), (373, 326)],
@@ -188,8 +192,8 @@ def yolo_nms(outputs, anchors, masks, classes):
             scores, (tf.shape(scores)[0], -1, tf.shape(scores)[-1])),
         max_output_size_per_class=100,
         max_total_size=100,
-        iou_threshold=0.5,
-        score_threshold=0.5
+        iou_threshold=FLAGS.yolo_iou_threshold,
+        score_threshold=FLAGS.yolo_score_threshold
     )
 
     return boxes, scores, classes, valid_detections
