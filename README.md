@@ -46,6 +46,16 @@ conda activate yolov3-tf2-gpu
 pip install -r requirements.txt
 ```
 
+### Nvidia Driver (For GPU)
+
+```bash
+# Ubuntu 18.04
+sudo apt-add-repository -r ppa:graphics-drivers/ppa
+sudo apt install nvidia-driver-430
+# Windows/Other
+https://www.nvidia.com/Download/index.aspx
+```
+
 ### Convert pre-trained Darknet weights
 
 ```bash
