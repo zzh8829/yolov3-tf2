@@ -28,17 +28,22 @@ This repo provides a clean implementation of YoloV3 in TensorFlow 2.0 using all 
 
 ### Installation
 
+#### Conda (Recommended)
+
+```bash
+# Tensorflow CPU
+conda env create -f conda-cpu.yml
+conda activate yolov3-tf2-cpu
+
+# Tensorflow GPU
+conda env create -f conda-gpu.yml
+conda activate yolov3-tf2-gpu
+```
+
 #### Pip
 
 ```bash
 pip install -r requirements.txt
-```
-
-#### Conda
-
-```bash
-conda env create -f environment.yml
-conda activate yolov3-tf2
 ```
 
 ### Convert pre-trained Darknet weights
@@ -270,6 +275,12 @@ train.py:
   --weights: path to weights file
     (default: './checkpoints/yolov3.tf')
 ```
+
+## Change Log
+
+#### October 1, 2019
+
+- Updated to Tensorflow to v2.0.0 Release
 
 
 ## References

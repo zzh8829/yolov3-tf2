@@ -1,0 +1,11 @@
+name: yolov3-tf2-gpu
+channels:
+  - conda-forge
+
+dependencies:
+  - python==3.7
+  - pip
+  - matplotlib
+  - pip:
+    - tensorflow-gpu==2.0.0
+    - opencv-python==4.1.1.26
