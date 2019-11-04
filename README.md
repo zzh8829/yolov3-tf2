@@ -82,6 +82,9 @@ python detect_video.py --video 0
 
 # video file
 python detect_video.py --video path_to_file.mp4 --weights ./checkpoints/yolov3-tiny.tf --tiny
+
+# video file with output
+python detect_video.py --video path_to_file.mp4 --output ./output.avi
 ```
 
 ### Training
@@ -245,6 +248,23 @@ detect.py:
     (default: './data/girl.png')
   --output: path to output image
     (default: './output.jpg')
+  --[no]tiny: yolov3 or yolov3-tiny
+    (default: 'false')
+  --weights: path to weights file
+    (default: './checkpoints/yolov3.tf')
+  --num_classes: number of classes in the model
+    (default: '80')
+    (an integer)
+
+detect_video.py:
+  --classes: path to classes file
+    (default: './data/coco.names')
+  --video: path to input video (use 0 for cam)
+    (default: './data/video.mp4')
+  --output: path to output video (remember to set right codec for given format. e.g. XVID for .avi)
+    (default: None)
+  --output_format: codec used in VideoWriter when saving video to file
+    (default: 'XVID)
   --[no]tiny: yolov3 or yolov3-tiny
     (default: 'false')
   --weights: path to weights file
