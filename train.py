@@ -83,7 +83,7 @@ def main(_argv):
             # freeze darknet
             darknet = model.get_layer('yolo_darknet')
             freeze_all(darknet)
-        elif FLAGS.mode == 'frozen':
+        elif FLAGS.transfer == 'frozen':
             # freeze everything
             freeze_all(model)
         else:
