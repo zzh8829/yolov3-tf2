@@ -147,6 +147,14 @@ Numbers are obtained with rough calculations from `detect_video.py`
 | YoloV3      | 66ms    | 50ms    | 123ms   |
 | YoloV3-Tiny | 15ms    | 10ms    | 24ms    |
 
+### RTX 2070 (credit to @AnaRhisT94)
+
+| Detection   | 416x416 |
+|-------------|---------|
+| YoloV3 predict_on_batch     | 29-32ms    | 
+| YoloV3 predict_on_batch + TensorRT     | 22-28ms    | 
+
+
 Darknet version of YoloV3 at 416x416 takes 29ms on Titan X.
 Considering Titan X has about double the benchmark of Tesla M60,
 Performance-wise this implementation is pretty comparable.
@@ -167,7 +175,8 @@ When calling model(x) directly, we are executing the graph in eager mode. For
 `model.predict`, tf actually compiles the graph on the first run and then
 execute in graph mode. So if you are only running the model once, `model(x)` is
 faster since there is no compilation needed. Otherwise, `model.predict` or
-using exported SavedModel graph is much faster (by 2x).
+using exported SavedModel graph is much faster (by 2x). For non real-time usage,
+`model.predict_on_batch` is even faster as tested by @AnaRhisT94)
 
 ### GradientTape
 
