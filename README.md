@@ -235,6 +235,14 @@ the default threshold is 0.5 for both IOU and score, you can adjust them
 according to your need by setting `--yolo_iou_threshold` and
 `--yolo_score_threshold` flags
 
+### NAN Loss / Training Failed / Doesn't Converge 
+
+Many people including me have succeeded in training, so the code definitely works
+@LongxingTan in https://github.com/zzh8829/yolov3-tf2/issues/128 provided some of his insights summarized here:
+  
+  1. For nan loss, try to make learning rate smaller
+  2. Double check the format of your input data. Data input labelled by vott and labelImg is different. so make sure the input box is the right, and check carefully the format is `x1/width,y1/height,x2/width,y2/height` and **NOT** x1,y1,x2,y2, or x,y,w,h
+
 
 ## Command Line Args Reference
 
