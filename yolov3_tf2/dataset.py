@@ -2,7 +2,7 @@ import tensorflow as tf
 from absl.flags import FLAGS
 
 @tf.function
-def transform_targets_for_output(y_true, grid_size, anchor_idxs, classes):
+def transform_targets_for_output(y_true, grid_size, anchor_idxs):
     # y_true: (N, boxes, (x1, y1, x2, y2, class, best_anchor))
     N = tf.shape(y_true)[0]
 
@@ -43,9 +43,9 @@ def transform_targets_for_output(y_true, grid_size, anchor_idxs, classes):
         y_true_out, indexes.stack(), updates.stack())
 
 
-def transform_targets(y_train, anchors, anchor_masks, classes):
+def transform_targets(y_train, anchors, anchor_masks, size):
     y_outs = []
-    grid_size = 13
+    grid_size = size // 32
 
     # calculate anchor index for true boxes
     anchors = tf.cast(anchors, tf.float32)
@@ -64,7 +64,7 @@ def transform_targets(y_train, anchors, anchor_masks, classes):
 
     for anchor_idxs in anchor_masks:
         y_outs.append(transform_targets_for_output(
-            y_train, grid_size, anchor_idxs, classes))
+            y_train, grid_size, anchor_idxs))
         grid_size *= 2
 
     return tuple(y_outs)
