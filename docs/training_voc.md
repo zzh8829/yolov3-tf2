@@ -69,6 +69,9 @@ python train.py \
 	--weights_num_classes 80 
 ```
 
+Original pretrained yolov3 has 80 classes, here we demonstrated how to
+do transfer learning on 20 classes.
+
 #### Training from random weights (NOT RECOMMENDED)
 Training from scratch is very difficult to converge
 The original paper trained darknet 
@@ -82,11 +85,14 @@ python train.py \
 	--num_classes 20 \
 	--mode fit --transfer none \
 	--batch_size 16 \
-	--epochs 3 \
+	--epochs 10 \
 ```
 
-I have tested this works 100% with correct loss and converging over time
+I have tested this works 100% with correct loss and converging over time.
 Each epoch takes around 10 minutes on single AWS p2.xlarge (Nvidia K80 GPU) Instance.
+
+You might see warnings or error messages during training, they are not critical dont' worry too much about them.
+There might be a long wait time between each epoch becaues we are calculating validation loss.
 
 ### 4. Inference
 
@@ -94,9 +100,10 @@ Each epoch takes around 10 minutes on single AWS p2.xlarge (Nvidia K80 GPU) Inst
 python detect.py \
 	--classes ./data/voc2012.names \
 	--num_classes 20 \
-	--weights ./checkpoints/yolov3_train_3.tf
+	--weights ./checkpoints/yolov3_train_5.tf
 ```
 
 You should see some detect objects in the standard output and the visualization at `output.jpg`.
-this is just a proof of concept, so it won't be as good as pretrained models
+this is just a proof of concept, so it won't be as good as pretrained models.
+In my experience, you might need lower score score thershold if you didn't train it enough.
 
