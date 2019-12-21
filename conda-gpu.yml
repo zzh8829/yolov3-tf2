@@ -6,6 +6,9 @@ dependencies:
   - matplotlib
   - opencv
   - cudnn
-  - cudatoolkit==10.0.130
+  - cudatoolkit==10.1.243
   - pip:
-    - tensorflow-gpu==2.0.0
+    - tensorflow-gpu==2.1.0rc1
+    - lxml
+    - tqdm
+    - -e .

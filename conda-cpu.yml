@@ -7,3 +7,6 @@ dependencies:
   - opencv
   - pip:
     - tensorflow==2.0.0
+    - lxml
+    - tqdm
+    - -e .
