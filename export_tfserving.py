@@ -22,29 +22,6 @@ flags.DEFINE_string('image', './data/girl.png', 'path to input image')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 
 
-# TODO: remove this after upstream fix
-# modified from: tensorflow.python.keras.saving.saving_utils.trace_model_call
-def trace_model_call(model):
-    inputs = model.inputs
-    input_names = model.input_names
-
-    input_signature = []
-    for input_tensor, input_name in zip(inputs, input_names):
-        input_signature.append(tensor_spec.TensorSpec(
-            shape=input_tensor.shape, dtype=input_tensor.dtype,
-            name=input_name))
-
-    @def_function.function(input_signature=input_signature, autograph=False)
-    def _wrapped_model(*args):
-        inputs = args[0] if len(input_signature) == 1 else list(args)
-        outputs_list = nest.flatten(model(inputs=inputs))
-        output_names = model.output_names
-        return {"{}_{}".format(kv[0], i): kv[1] for i, kv in enumerate(
-            zip(output_names, outputs_list))}
-
-    return _wrapped_model
-
-
 def main(_argv):
     if FLAGS.tiny:
         yolo = YoloV3Tiny(classes=FLAGS.num_classes)
@@ -54,7 +31,7 @@ def main(_argv):
     yolo.load_weights(FLAGS.weights)
     logging.info('weights loaded')
 
-    tf.saved_model.save(yolo, FLAGS.output, signatures=trace_model_call(yolo))
+    tf.saved_model.save(yolo, FLAGS.output)
     logging.info("model saved to: {}".format(FLAGS.output))
 
     model = tf.saved_model.load(FLAGS.output)
@@ -70,7 +47,7 @@ def main(_argv):
 
     t1 = time.time()
     outputs = infer(img)
-    boxes, scores, classes, nums = outputs["yolo_nms_0"], outputs[
+    boxes, scores, classes, nums = outputs["yolo_nms"], outputs[
         "yolo_nms_1"], outputs["yolo_nms_2"], outputs["yolo_nms_3"]
     t2 = time.time()
     logging.info('time: {}'.format(t2 - t1))
