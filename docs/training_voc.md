@@ -97,10 +97,19 @@ There might be a long wait time between each epoch becaues we are calculating va
 ### 4. Inference
 
 ```bash
+# detect from images
 python detect.py \
 	--classes ./data/voc2012.names \
 	--num_classes 20 \
-	--weights ./checkpoints/yolov3_train_5.tf
+	--weights ./checkpoints/yolov3_train_5.tf \
+	--image ./data/street.jpg
+
+# detect from validation set
+python detect.py \
+	--classes ./data/voc2012.names \
+	--num_classes 20 \
+	--weights ./checkpoints/yolov3_train_5.tf \
+	--tfrecord ./data/voc2012_val.tfrecord
 ```
 
 You should see some detect objects in the standard output and the visualization at `output.jpg`.
