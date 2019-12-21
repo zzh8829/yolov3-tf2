@@ -21,7 +21,7 @@ def main(_argv):
     class_names = [c.strip() for c in open(FLAGS.classes).readlines()]
     logging.info('classes loaded')
 
-    dataset = load_tfrecord_dataset(FLAGS.dataset, FLAGS.classes)
+    dataset = load_tfrecord_dataset(FLAGS.dataset, FLAGS.classes, FLAGS.size)
     dataset = dataset.shuffle(1024)
 
     for image, labels in dataset.take(1):
@@ -29,13 +29,16 @@ def main(_argv):
         scores = []
         classes = []
         for x1, y1, x2, y2, label in labels:
+            if x1 == 0 and x2 == 0:
+                continue
+
             boxes.append((x1, y1, x2, y2))
             scores.append(1)
             classes.append(label)
+        nums = [len(boxes)]
         boxes = [boxes]
         scores = [scores]
         classes = [classes]
-        nums = [len(boxes)]
 
         logging.info('labels:')
         for i in range(nums[0]):

@@ -38,7 +38,7 @@ def main(_argv):
     logging.info('classes loaded')
 
     if FLAGS.tfrecord:
-        dataset = load_tfrecord_dataset(FLAGS.tfrecord, FLAGS.classes)
+        dataset = load_tfrecord_dataset(FLAGS.tfrecord, FLAGS.classes, FLAGS.size)
         dataset = dataset.shuffle(1024)
         img_raw, label = next(iter(dataset.take(1)))
         img = tf.expand_dims(img_raw, 0)
