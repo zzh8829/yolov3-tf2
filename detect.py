@@ -38,15 +38,16 @@ def main(_argv):
     logging.info('classes loaded')
 
     if FLAGS.tfrecord:
-        dataset = load_tfrecord_dataset(FLAGS.tfrecord, FLAGS.classes, FLAGS.size)
+        dataset = load_tfrecord_dataset(
+            FLAGS.tfrecord, FLAGS.classes, FLAGS.size)
         dataset = dataset.shuffle(512)
-        img_raw, label = next(iter(dataset.take(1)))
-        img = tf.expand_dims(img_raw, 0)
-        img = transform_images(img, FLAGS.size)
+        img_raw, _label = next(iter(dataset.take(1)))
     else:
-        img_raw = tf.image.decode_image(open(FLAGS.image, 'rb').read(), channels=3)
-        img = tf.expand_dims(img_raw, 0)
-        img = transform_images(img, FLAGS.size)
+        img_raw = tf.image.decode_image(
+            open(FLAGS.image, 'rb').read(), channels=3)
+
+    img = tf.expand_dims(img_raw, 0)
+    img = transform_images(img, FLAGS.size)
 
     t1 = time.time()
     boxes, scores, classes, nums = yolo(img)
@@ -59,10 +60,11 @@ def main(_argv):
                                            np.array(scores[0][i]),
                                            np.array(boxes[0][i])))
 
-    img = img_raw.numpy()
+    img = cv2.cvtColor(img_raw.numpy(), cv2.COLOR_RGB2BGR)
     img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
     cv2.imwrite(FLAGS.output, img)
     logging.info('output saved to: {}'.format(FLAGS.output))
+
 
 if __name__ == '__main__':
     try:

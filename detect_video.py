@@ -63,7 +63,8 @@ def main(_argv):
             time.sleep(0.1)
             continue
 
-        img_in = tf.expand_dims(img, 0)
+        img_in = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
+        img_in = tf.expand_dims(img_in, 0)
         img_in = transform_images(img_in, FLAGS.size)
 
         t1 = time.time()

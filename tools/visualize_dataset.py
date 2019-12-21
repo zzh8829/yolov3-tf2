@@ -46,7 +46,7 @@ def main(_argv):
                                                np.array(scores[0][i]),
                                                np.array(boxes[0][i])))
 
-        img = image.numpy()
+        img = cv2.cvtColor(image.numpy(), cv2.COLOR_RGB2BGR)
         img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
         cv2.imwrite(FLAGS.output, img)
         logging.info('output saved to: {}'.format(FLAGS.output))
