@@ -7,7 +7,7 @@ import tensorflow as tf
 from yolov3_tf2.models import (
     YoloV3, YoloV3Tiny
 )
-from yolov3_tf2.dataset import transform_images
+from yolov3_tf2.dataset import transform_images, load_tfrecord_dataset
 from yolov3_tf2.utils import draw_outputs
 
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
@@ -16,6 +16,7 @@ flags.DEFINE_string('weights', './checkpoints/yolov3.tf',
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_string('image', './data/girl.png', 'path to input image')
+flags.DEFINE_string('tfrecord', None, 'tfrecord instead of image')
 flags.DEFINE_string('output', './output.jpg', 'path to output image')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 
@@ -36,9 +37,16 @@ def main(_argv):
     class_names = [c.strip() for c in open(FLAGS.classes).readlines()]
     logging.info('classes loaded')
 
-    img = tf.image.decode_image(open(FLAGS.image, 'rb').read(), channels=3)
-    img = tf.expand_dims(img, 0)
-    img = transform_images(img, FLAGS.size)
+    if FLAGS.tfrecord:
+        dataset = load_tfrecord_dataset(FLAGS.tfrecord, FLAGS.classes)
+        dataset = dataset.shuffle(1024)
+        img_raw, label = next(iter(dataset.take(1)))
+        img = tf.expand_dims(img_raw, 0)
+        img = transform_images(img, FLAGS.size)
+    else:
+        img_raw = tf.image.decode_image(open(FLAGS.image, 'rb').read(), channels=3)
+        img = tf.expand_dims(img_raw, 0)
+        img = transform_images(img, FLAGS.size)
 
     t1 = time.time()
     boxes, scores, classes, nums = yolo(img)
@@ -51,7 +59,7 @@ def main(_argv):
                                            np.array(scores[0][i]),
                                            np.array(boxes[0][i])))
 
-    img = cv2.imread(FLAGS.image)
+    img = img_raw.numpy()
     img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
     cv2.imwrite(FLAGS.output, img)
     logging.info('output saved to: {}'.format(FLAGS.output))
