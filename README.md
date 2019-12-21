@@ -238,6 +238,11 @@ the default threshold is 0.5 for both IOU and score, you can adjust them
 according to your need by setting `--yolo_iou_threshold` and
 `--yolo_score_threshold` flags
 
+### Maximum number of boxes
+
+By default there can be maximum 100 bounding boxes per image, 
+if for some reason you would like to have more boxes you can use the `--yolo_max_boxes` flag.
+
 ### NAN Loss / Training Failed / Doesn't Converge 
 
 Many people including me have succeeded in training, so the code definitely works
