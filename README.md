@@ -246,6 +246,13 @@ Many people including me have succeeded in training, so the code definitely work
   1. For nan loss, try to make learning rate smaller
   2. Double check the format of your input data. Data input labelled by vott and labelImg is different. so make sure the input box is the right, and check carefully the format is `x1/width,y1/height,x2/width,y2/height` and **NOT** x1,y1,x2,y2, or x,y,w,h
 
+Make sure to visualize your custom dataset using this tool
+```
+python tools/visualize_dataset.py --classes=./data/voc2012.names
+```
+
+It will output one random image from your dataset with label to `output.jpg`
+Training definitely won't work if the rendered label doesn't look correct
 
 ## Command Line Args Reference
 

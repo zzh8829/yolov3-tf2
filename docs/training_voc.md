@@ -38,9 +38,41 @@ python tools/voc2012.py \
 	--output_file ./data/voc2012_val.tfrecord 
 ```
 
+You can visualize the dataset using this tool
+```
+python tools/visualize_dataset.py --classes=./data/voc2012.names
+```
+
+It will output one random image with label to `output.jpg`
+
 ### 3. Training
 
 You can adjust the parameters based on your setup
+
+#### With Transfer Learning
+
+This step requires loading the pretrained darknet (feature extractor) weights.
+```
+wget https://pjreddie.com/media/files/yolov3.weights -O data/yolov3.weights
+python convert.py
+python detect.py --image ./data/meme.jpg # Sanity check
+
+python train.py \
+	--dataset ./data/voc2012_train.tfrecord \
+	--val_dataset ./data/voc2012_val.tfrecord \
+	--classes ./data/voc2012.names \
+	--num_classes 20 \
+	--mode fit --transfer darknet \
+	--batch_size 16 \
+	--epochs 10 \
+	--weights ./checkpoints/yolov3.tf \
+	--weights_num_classes 80 
+```
+
+#### Training from random weights (NOT RECOMMENDED)
+Training from scratch is very difficult to converge
+The original paper trained darknet 
+on imagenet before training the whole network as well.
 
 ```bash
 python train.py \
