@@ -288,10 +288,11 @@ def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
         # 4. calculate all masks
         obj_mask = tf.squeeze(true_obj, -1)
         # ignore false positive when iou is over threshold
-        best_iou, _, _ = tf.map_fn(
-            lambda x: (tf.reduce_max(broadcast_iou(x[0], tf.boolean_mask(
-                x[1], tf.cast(x[2], tf.bool))), axis=-1), 0, 0),
-            (pred_box, true_box, obj_mask))
+        best_iou = tf.map_fn(
+            lambda x: tf.reduce_max(broadcast_iou(x[0], tf.boolean_mask(
+                x[1], tf.cast(x[2], tf.bool))), axis=-1),
+            (pred_box, true_box, obj_mask),
+            tf.float32)
         ignore_mask = tf.cast(best_iou < ignore_thresh, tf.float32)
 
         # 5. calculate all losses
