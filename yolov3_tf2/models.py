@@ -150,7 +150,7 @@ def YoloOutput(filters, anchors, classes, name=None):
 
 def yolo_boxes(pred, anchors, classes):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
-    grid_size = tf.shape(pred)[1]
+    grid_size = tf.shape(pred)[1:3]
     box_xy, box_wh, objectness, class_probs = tf.split(
         pred, (2, 2, 1, classes), axis=-1)
 
@@ -160,7 +160,7 @@ def yolo_boxes(pred, anchors, classes):
     pred_box = tf.concat((box_xy, box_wh), axis=-1)  # original xywh for loss
 
     # !!! grid[x][y] == (y, x)
-    grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+    grid = tf.meshgrid(tf.range(grid_size[1]), tf.range(grid_size[0]))
     grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
 
     box_xy = (box_xy + tf.cast(grid, tf.float32)) / \

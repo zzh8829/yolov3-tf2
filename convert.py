@@ -21,7 +21,7 @@ def main(_argv):
     load_darknet_weights(yolo, FLAGS.weights, FLAGS.tiny)
     logging.info('weights loaded')
 
-    img = np.random.random((1, 320, 320, 3)).astype(np.float32)
+    img = np.random.random((1, 576, 1024, 3)).astype(np.float32)
     output = yolo(img)
     logging.info('sanity check passed')
 
