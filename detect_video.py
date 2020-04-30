@@ -24,8 +24,8 @@ flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 
 def main(_argv):
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    if len(physical_devices) > 0:
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    for physical_device in physical_devices:
+        tf.config.experimental.set_memory_growth(physical_device, True)
 
     if FLAGS.tiny:
         yolo = YoloV3Tiny(classes=FLAGS.num_classes)
@@ -63,7 +63,7 @@ def main(_argv):
             time.sleep(0.1)
             continue
 
-        img_in = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
+        img_in = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img_in = tf.expand_dims(img_in, 0)
         img_in = transform_images(img_in, FLAGS.size)
 
