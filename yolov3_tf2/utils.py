@@ -96,7 +96,16 @@ def broadcast_iou(box_1, box_2):
         (box_1[..., 3] - box_1[..., 1])
     box_2_area = (box_2[..., 2] - box_2[..., 0]) * \
         (box_2[..., 3] - box_2[..., 1])
-    return int_area / (box_1_area + box_2_area - int_area)
+    union_area = box_1_area + box_2_area - int_area
+    iou = int_area / union_area
+    
+    enclose_left_up = tf.minimum(box_1[..., :2], box_2[..., :2])
+    enclose_right_down = tf.maximum(box_1[..., 2:], box_2[..., 2:])
+    enclose = tf.maximum(enclose_right_down - enclose_left_up, 0.0)
+    enclose_area = enclose[..., 0] * enclose[..., 1]
+    giou = iou - 1.0 * (enclose_area - union_area) / enclose_area
+
+    return giou
 
 
 def draw_outputs(img, outputs, class_names):
