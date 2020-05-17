@@ -46,7 +46,7 @@ def load_darknet_weights(model, weights_file, tiny=False):
 
             filters = layer.filters
             size = layer.kernel_size[0]
-            in_dim = layer.input_shape[-1]
+            in_dim = layer.get_input_shape_at(0)[-1]
 
             if batch_norm is None:
                 conv_bias = np.fromfile(wf, dtype=np.float32, count=filters)
