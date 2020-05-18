@@ -236,16 +236,16 @@ def YoloV3Tiny(size=None, channels=3, anchors=yolo_tiny_anchors,
                masks=yolo_tiny_anchor_masks, classes=80, training=False):
     x = inputs = Input([size, size, channels], name='input')
 
-    x_8, x = DarknetTiny(name='yolo_darknet')(x)
+    x_8, x = DarknetTiny(name='yolo_darknet_tiny')(x)
 
-    x = YoloConvTiny(256, name='yolo_conv_0')(x)
+    x = YoloConvTiny(256, name='yolo_conv_tiny_0')(x)
     output_0 = YoloOutput(256, len(masks[0]), classes, name='yolo_output_0')(x)
 
-    x = YoloConvTiny(128, name='yolo_conv_1')((x, x_8))
+    x = YoloConvTiny(128, name='yolo_conv_tiny_1')((x, x_8))
     output_1 = YoloOutput(128, len(masks[1]), classes, name='yolo_output_1')(x)
 
     if training:
-        return Model(inputs, (output_0, output_1), name='yolov3')
+        return Model(inputs, (output_0, output_1), name='yolov3_tiny')
 
     boxes_0 = Lambda(lambda x: yolo_boxes(x, anchors[masks[0]], classes),
                      name='yolo_boxes_0')(output_0)
