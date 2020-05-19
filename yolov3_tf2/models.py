@@ -247,9 +247,9 @@ def YoloV3Tiny(size=None, channels=3, anchors=yolo_tiny_anchors,
     if training:
         return Model(inputs, (output_0, output_1), name='yolov3')
 
-    boxes_0 = Lambda(lambda x: yolo_boxes(x, anchors[masks[0]], classes),
+    boxes_0 = Lambda(lambda x: yolo_boxes(x, np.array([(81, 82), (135, 169),  (344, 319)], np.float32) / 416, classes),
                      name='yolo_boxes_0')(output_0)
-    boxes_1 = Lambda(lambda x: yolo_boxes(x, anchors[masks[1]], classes),
+    boxes_1 = Lambda(lambda x: yolo_boxes(x, np.array([(10, 14), (23, 27), (37, 58)], np.float32) / 416, classes),
                      name='yolo_boxes_1')(output_1)
     outputs = Lambda(lambda x: yolo_nms(x, anchors, masks, classes),
                      name='yolo_nms')((boxes_0[:3], boxes_1[:3]))
