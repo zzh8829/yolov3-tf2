@@ -16,7 +16,6 @@ from yolov3_tf2.models import (
     yolo_tiny_anchors, yolo_tiny_anchor_masks
 )
 from yolov3_tf2.utils import freeze_all
-import yolov3_tf2.dataset as dataset
 
 flags.DEFINE_string('dataset', '', 'path to dataset')
 flags.DEFINE_string('val_dataset', '', 'path to validation dataset')
@@ -42,6 +41,7 @@ flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 flags.DEFINE_integer('weights_num_classes', None, 'specify num class for `weights` file if different, '
                      'useful in transfer learning with different number of classes')
+flags.DEFINE_boolean('use_ragged_dataset', False, 'use tf.ragged api or not')
 
 
 def main(_argv):
@@ -59,12 +59,17 @@ def main(_argv):
         anchors = yolo_anchors
         anchor_masks = yolo_anchor_masks
 
+    if FLAGS.use_ragged_dataset:
+        import yolov3_tf2.ragged_dataset as dataset
+    else:
+        import yolov3_tf2.dataset as dataset
+
     train_dataset = dataset.load_fake_dataset()
     if FLAGS.dataset:
         train_dataset = dataset.load_tfrecord_dataset(
             FLAGS.dataset, FLAGS.classes, FLAGS.size)
     train_dataset = train_dataset.shuffle(buffer_size=512)
-    train_dataset = train_dataset.batch(FLAGS.batch_size)
+    train_dataset = train_dataset.batch(FLAGS.batch_size, drop_remainder=FLAGS.use_ragged_dataset)
     train_dataset = train_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
         dataset.transform_targets(y, anchors, anchor_masks, FLAGS.size)))
@@ -75,7 +80,7 @@ def main(_argv):
     if FLAGS.val_dataset:
         val_dataset = dataset.load_tfrecord_dataset(
             FLAGS.val_dataset, FLAGS.classes, FLAGS.size)
-    val_dataset = val_dataset.batch(FLAGS.batch_size)
+    val_dataset = val_dataset.batch(FLAGS.batch_size, drop_remainder=FLAGS.use_ragged_dataset)
     val_dataset = val_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
         dataset.transform_targets(y, anchors, anchor_masks, FLAGS.size)))
