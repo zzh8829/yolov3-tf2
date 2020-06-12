@@ -14,6 +14,7 @@ flags.DEFINE_enum('split', 'train', [
                   'train', 'val'], 'specify train or val spit')
 flags.DEFINE_string('output_file', './data/voc2012_train.tfrecord', 'outpot dataset')
 flags.DEFINE_string('classes', './data/voc2012.names', 'classes file')
+flags.DEFINE_string('object', 'aeroplane', 'prefix of txt to use')
 
 
 def build_example(annotation, class_map):
@@ -22,8 +23,8 @@ def build_example(annotation, class_map):
     img_raw = open(img_path, 'rb').read()
     key = hashlib.sha256(img_raw).hexdigest()
 
-    width = int(annotation['size']['width'])
-    height = int(annotation['size']['height'])
+    width = int(float(annotation['size']['width']))
+    height = int(float(annotation['size']['height']))
 
     xmin = []
     ymin = []
@@ -36,6 +37,10 @@ def build_example(annotation, class_map):
     difficult_obj = []
     if 'object' in annotation:
         for obj in annotation['object']:
+            # We should be skipping this object if it is not in the classes map
+            if obj['name'] not in class_map:
+                continue
+
             difficult = bool(int(obj['difficult']))
             difficult_obj.append(int(difficult))
 
@@ -93,7 +98,7 @@ def main(_argv):
 
     writer = tf.io.TFRecordWriter(FLAGS.output_file)
     image_list = open(os.path.join(
-        FLAGS.data_dir, 'ImageSets', 'Main', 'aeroplane_%s.txt' % FLAGS.split)).read().splitlines()
+        FLAGS.data_dir, 'ImageSets', 'Main', '%s_%s.txt' % (FLAGS.object, FLAGS.split))).read().splitlines()
     logging.info("Image list loaded: %d", len(image_list))
     for image in tqdm.tqdm(image_list):
         name, _ = image.split()
@@ -105,7 +110,6 @@ def main(_argv):
         writer.write(tf_example.SerializeToString())
     writer.close()
     logging.info("Done")
-
 
 if __name__ == '__main__':
     app.run(main)
