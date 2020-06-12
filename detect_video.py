@@ -9,6 +9,8 @@ from yolov3_tf2.models import (
 from yolov3_tf2.dataset import transform_images
 from yolov3_tf2.utils import draw_outputs
 
+import pickle
+
 
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_string('weights', './checkpoints/yolov3.tf',
@@ -18,8 +20,10 @@ flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_string('video', './data/video.mp4',
                     'path to video file or number for webcam)')
 flags.DEFINE_string('output', None, 'path to output video')
+flags.DEFINE_string('output_stats', None, 'path to save matrix with bounding boxes')
 flags.DEFINE_string('output_format', 'XVID', 'codec used in VideoWriter when saving video to file')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
+flags.DEFINE_boolean('continuous', False, 'set to False if using live feed')
 
 
 def main(_argv):
@@ -55,10 +59,13 @@ def main(_argv):
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
+    detection_boxes = []
     while True:
         _, img = vid.read()
 
         if img is None:
+            if not FLAGS.continuous:
+                break # Break out of the loop
             logging.warning("Empty Frame")
             time.sleep(0.1)
             continue
@@ -69,18 +76,24 @@ def main(_argv):
 
         t1 = time.time()
         boxes, scores, classes, nums = yolo.predict(img_in)
+        detection_boxes.append([boxes, scores, classes, nums]) # That we can later save
         t2 = time.time()
         times.append(t2-t1)
         times = times[-20:]
 
         img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
-        img = cv2.putText(img, "Time: {:.2f}ms".format(sum(times)/len(times)*1000), (0, 30),
-                          cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
+        # img = cv2.putText(img, "Time: {:.2f}ms".format(sum(times)/len(times)*1000), (0, 30),
+        #                   cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
         if FLAGS.output:
             out.write(img)
         cv2.imshow('output', img)
         if cv2.waitKey(1) == ord('q'):
             break
+
+    # If we want to save the computed boxes
+    if FLAGS.output_stats:
+        with open(FLAGS.output_stats, 'wb') as outp:
+            pickle.dump(detection_boxes, outp)
 
     cv2.destroyAllWindows()
 
