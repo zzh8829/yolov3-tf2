@@ -93,10 +93,9 @@ def main(_argv):
 
     writer = tf.io.TFRecordWriter(FLAGS.output_file)
     image_list = open(os.path.join(
-        FLAGS.data_dir, 'ImageSets', 'Main', 'aeroplane_%s.txt' % FLAGS.split)).read().splitlines()
+        FLAGS.data_dir, 'ImageSets', 'Main', '%s.txt' % FLAGS.split)).read().splitlines()
     logging.info("Image list loaded: %d", len(image_list))
-    for image in tqdm.tqdm(image_list):
-        name, _ = image.split()
+    for name in tqdm.tqdm(image_list):
         annotation_xml = os.path.join(
             FLAGS.data_dir, 'Annotations', name + '.xml')
         annotation_xml = lxml.etree.fromstring(open(annotation_xml).read())
