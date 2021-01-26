@@ -148,6 +148,16 @@ def YoloOutput(filters, anchors, classes, name=None):
     return yolo_output
 
 
+# As tensorflow lite doesn't support tf.size used in tf.meshgrid, 
+# we reimplemented a simple meshgrid function that use basic tf function.
+def _meshgrid(n_a, n_b):
+
+    return [
+        tf.reshape(tf.tile(tf.range(n_a), [n_b]), (n_b, n_a)),
+        tf.reshape(tf.repeat(tf.range(n_b), n_a), (n_b, n_a))
+    ]
+
+
 def yolo_boxes(pred, anchors, classes):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
     grid_size = tf.shape(pred)[1:3]
@@ -160,7 +170,7 @@ def yolo_boxes(pred, anchors, classes):
     pred_box = tf.concat((box_xy, box_wh), axis=-1)  # original xywh for loss
 
     # !!! grid[x][y] == (y, x)
-    grid = tf.meshgrid(tf.range(grid_size[1]), tf.range(grid_size[0]))
+    grid = _meshgrid(grid_size[1],grid_size[0])
     grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
 
     box_xy = (box_xy + tf.cast(grid, tf.float32)) / \
