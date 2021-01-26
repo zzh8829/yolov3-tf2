@@ -23,7 +23,7 @@ flags.DEFINE_string('image', './data/girl.png', 'path to input image')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 flags.DEFINE_integer('size', 416, 'image size')
 
-# TODO: This is broken DOES NOT WORK !!
+
 def main(_argv):
     if FLAGS.tiny:
         yolo = YoloV3Tiny(size=FLAGS.size, classes=FLAGS.num_classes)
