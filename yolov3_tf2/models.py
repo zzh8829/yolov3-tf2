@@ -189,8 +189,10 @@ def yolo_nms(outputs, anchors, masks, classes):
 
     scores = confidence * class_probs
 
-    scores = tf.reshape(scores,[-1])
+    dscores = tf.squeeze(scores, axis=0)
+    scores = tf.reduce_max(dscores,[1])
     bbox = tf.reshape(bbox,(-1,4))
+    classes = tf.argmax(dscores,1)
     selected_indices, selected_scores = tf.image.non_max_suppression_with_scores(
         boxes=bbox,
         scores=scores,
@@ -206,10 +208,15 @@ def yolo_nms(outputs, anchors, masks, classes):
     selected_scores = tf.concat([selected_scores,tf.zeros(FLAGS.yolo_max_boxes-num_valid_nms_boxes,tf.float32)], -1)
 
     boxes=tf.gather(bbox, selected_indices)
+    boxes = tf.expand_dims(boxes, axis=0)
     scores=selected_scores
+    scores = tf.expand_dims(scores, axis=0)
+    classes = tf.gather(classes,selected_indices)
+    classes = tf.expand_dims(classes, axis=0)
     valid_detections=num_valid_nms_boxes
+    valid_detections = tf.expand_dims(valid_detections, axis=0)
 
-    return boxes, scores, valid_detections
+    return boxes, scores, classes, valid_detections
 
 
 def YoloV3(size=None, channels=3, anchors=yolo_anchors,
