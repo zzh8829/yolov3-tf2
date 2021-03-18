@@ -1,5 +1,6 @@
 import tensorflow as tf
 from absl.flags import FLAGS
+tf.enable_eager_execution()
 
 @tf.function
 def transform_targets_for_output(y_true, grid_size, anchor_idxs):
