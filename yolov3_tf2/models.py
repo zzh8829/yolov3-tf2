@@ -198,15 +198,33 @@ def yolo_nms(outputs, anchors, masks, classes):
     class_probs = tf.concat(t, axis=1)
 
     scores = confidence * class_probs
-    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-        boxes=tf.reshape(bbox, (tf.shape(bbox)[0], -1, 1, 4)),
-        scores=tf.reshape(
-            scores, (tf.shape(scores)[0], -1, tf.shape(scores)[-1])),
-        max_output_size_per_class=FLAGS.yolo_max_boxes,
-        max_total_size=FLAGS.yolo_max_boxes,
+
+    dscores = tf.squeeze(scores, axis=0)
+    scores = tf.reduce_max(dscores,[1])
+    bbox = tf.reshape(bbox,(-1,4))
+    classes = tf.argmax(dscores,1)
+    selected_indices, selected_scores = tf.image.non_max_suppression_with_scores(
+        boxes=bbox,
+        scores=scores,
+        max_output_size=FLAGS.yolo_max_boxes,
         iou_threshold=FLAGS.yolo_iou_threshold,
-        score_threshold=FLAGS.yolo_score_threshold
+        score_threshold=FLAGS.yolo_score_threshold,
+        soft_nms_sigma=0.5
     )
+    
+    num_valid_nms_boxes = tf.shape(selected_indices)[0]
+
+    selected_indices = tf.concat([selected_indices,tf.zeros(FLAGS.yolo_max_boxes-num_valid_nms_boxes, tf.int32)], 0)
+    selected_scores = tf.concat([selected_scores,tf.zeros(FLAGS.yolo_max_boxes-num_valid_nms_boxes,tf.float32)], -1)
+
+    boxes=tf.gather(bbox, selected_indices)
+    boxes = tf.expand_dims(boxes, axis=0)
+    scores=selected_scores
+    scores = tf.expand_dims(scores, axis=0)
+    classes = tf.gather(classes,selected_indices)
+    classes = tf.expand_dims(classes, axis=0)
+    valid_detections=num_valid_nms_boxes
+    valid_detections = tf.expand_dims(valid_detections, axis=0)
 
     return boxes, scores, classes, valid_detections
 
