@@ -23,7 +23,7 @@ flags.DEFINE_string('image', './data/girl.png', 'path to input image')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 flags.DEFINE_integer('size', 416, 'image size')
 
-# TODO: This is broken DOES NOT WORK !!
+
 def main(_argv):
     if FLAGS.tiny:
         yolo = YoloV3Tiny(size=FLAGS.size, classes=FLAGS.num_classes)
@@ -34,6 +34,11 @@ def main(_argv):
     logging.info('weights loaded')
 
     converter = tf.lite.TFLiteConverter.from_keras_model(yolo)
+
+    # Fix from https://stackoverflow.com/questions/64490203/tf-lite-non-max-suppression
+    converter.experimental_new_converter = True
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS, tf.lite.OpsSet.SELECT_TF_OPS]
+
     tflite_model = converter.convert()
     open(FLAGS.output, 'wb').write(tflite_model)
     logging.info("model saved to: {}".format(FLAGS.output))
