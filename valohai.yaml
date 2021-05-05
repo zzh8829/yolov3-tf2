@@ -1,0 +1,11 @@
+- step:
+    name: detect
+    image: tensorflow/tensorflow:2.4.0-gpu
+    environment: azure-westeurope-nc6
+    command:
+    - apt-get update
+    - apt-get install -y wget libsm6 libxext6 libxrender-dev
+    - pip install -r /valohai/repository/requirements-gpu.txt
+    - wget https://pjreddie.com/media/files/yolov3-tiny.weights -O data/yolov3-tiny.weights
+    - python convert.py --weights ./data/yolov3-tiny.weights --output ./checkpoints/yolov3-tiny.tf --tiny
+    - python detect.py --weights ./checkpoints/yolov3-tiny.tf --tiny --image ./data/street.jpg
