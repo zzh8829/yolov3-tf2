@@ -1,19 +1,15 @@
-import time
 from absl import app, flags, logging
 from absl.flags import FLAGS
 import cv2
 import numpy as np
-import tensorflow as tf
-from yolov3_tf2.models import (
-    YoloV3, YoloV3Tiny
-)
-from yolov3_tf2.dataset import load_tfrecord_dataset, transform_images
+
+from yolov3_tf2.dataset import load_tfrecord_dataset
 from yolov3_tf2.utils import draw_outputs
 
-flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
+flags.DEFINE_string('classes', '../.valohai/outputs/20210508-011339-04b3c9/test/classes.txt', 'path to classes file')
 flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_string(
-    'dataset', './data/voc2012_train.tfrecord', 'path to dataset')
+    'dataset', '../.valohai/outputs/20210508-011339-04b3c9/test/train.tfrecord', 'path to dataset')
 flags.DEFINE_string('output', './output.jpg', 'path to output image')
 
 
@@ -21,6 +17,7 @@ def main(_argv):
     class_names = [c.strip() for c in open(FLAGS.classes).readlines()]
     logging.info('classes loaded')
 
+    print("AFSDFSDAFSDA", FLAGS.dataset)
     dataset = load_tfrecord_dataset(FLAGS.dataset, FLAGS.classes, FLAGS.size)
     dataset = dataset.shuffle(512)
 

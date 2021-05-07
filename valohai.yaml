@@ -1,11 +1,135 @@
 - step:
+    name: convert-superbai
+    image: tensorflow/tensorflow:2.4.0
+    command:
+    - apt-get update
+    - apt-get install -y wget libsm6 libxext6 libxrender-dev
+    - pip install -r requirements.txt
+    - python tools/superbai/superbai.py
+    inputs:
+    - name: images
+      optional: false
+    - name: labels
+      optional: false
+- step:
     name: detect
+    image: tensorflow/tensorflow:2.4.0
+    command:
+    - apt-get update
+    - apt-get install -y wget libsm6 libxext6 libxrender-dev
+    - pip install -r /valohai/repository/requirements.txt
+    - python detect.py {parameters}
+    parameters:
+    - name: size
+      default: 416
+      multiple-separator: ','
+      optional: false
+      type: integer
+    inputs:
+    - name: classes
+      optional: false
+    - name: model
+      optional: false
+    - name: image
+      optional: true
+- step:
+    name: train
     image: tensorflow/tensorflow:2.4.0-gpu
-    environment: azure-westeurope-nc6
     command:
     - apt-get update
     - apt-get install -y wget libsm6 libxext6 libxrender-dev
     - pip install -r /valohai/repository/requirements-gpu.txt
-    - wget https://pjreddie.com/media/files/yolov3-tiny.weights -O data/yolov3-tiny.weights
-    - python convert.py --weights ./data/yolov3-tiny.weights --output ./checkpoints/yolov3-tiny.tf --tiny
-    - python detect.py --weights ./checkpoints/yolov3-tiny.tf --tiny --image ./data/street.jpg
+    - python train.py {parameters}
+    parameters:
+    - name: batch_size
+      default: 8
+      multiple-separator: ','
+      optional: false
+      type: integer
+    - name: epochs
+      default: 10
+      multiple-separator: ','
+      optional: false
+      type: integer
+    - name: learning_rate
+      default: 0.001
+      multiple-separator: ','
+      optional: false
+      type: float
+    - name: weights_num_classes
+      default: 80
+      multiple-separator: ','
+      optional: false
+      type: integer
+    - name: size
+      default: 416
+      multiple-separator: ','
+      optional: false
+      type: integer
+    inputs:
+    - name: classes
+      optional: false
+    - name: train
+      optional: false
+    - name: test
+      optional: false
+    - name: model
+      optional: false
+    environment: azure-westeurope-nc6
+- step:
+    name: weights
+    image: tensorflow/tensorflow:2.4.0
+    command:
+    - apt-get update
+    - apt-get install -y wget libsm6 libxext6 libxrender-dev
+    - pip install -r requirements.txt
+    - python ./weights.py {parameters}
+    parameters:
+    - name: weights_num_classes
+      default: 80
+      multiple-separator: ','
+      optional: false
+      type: integer
+    inputs:
+    - name: weights
+      default:
+      - https://pjreddie.com/media/files/yolov3.weights
+      optional: false
+- pipeline:
+    name: train-superbai
+    edges:
+    - configuration: {}
+      source: convert-superbai_1.output.classes.txt
+      target: train_1.input.classes
+    - configuration: {}
+      source: convert-superbai_1.output.train/*
+      target: train_1.input.train
+    - configuration: {}
+      source: convert-superbai_1.output.test/*
+      target: train_1.input.test
+    - configuration: {}
+      source: convert-superbai_1.output.classes.txt
+      target: detect_1.input.classes
+    - configuration: {}
+      source: weights_1.output.model/*
+      target: train_1.input.model
+    - configuration: {}
+      source: train_1.output.model/*
+      target: detect_1.input.model
+    nodes:
+    - name: convert-superbai_1
+      override: {}
+      step: convert-superbai
+      type: execution
+    - name: weights_1
+      override: {}
+      step: weights
+      type: execution
+    - name: train_1
+      override: {}
+      step: train
+      type: execution
+    - name: detect_1
+      override: {}
+      step: detect
+      type: execution

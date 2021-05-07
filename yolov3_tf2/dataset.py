@@ -1,5 +1,6 @@
 import tensorflow as tf
-from absl.flags import FLAGS
+from yolov3_tf2 import YOLO_MAX_BOXES
+
 
 @tf.function
 def transform_targets_for_output(y_true, grid_size, anchor_idxs):
@@ -112,7 +113,7 @@ def parse_tfrecord(tfrecord, class_table, size):
                         tf.sparse.to_dense(x['image/object/bbox/ymax']),
                         labels], axis=1)
 
-    paddings = [[0, FLAGS.yolo_max_boxes - tf.shape(y_train)[0]], [0, 0]]
+    paddings = [[0, YOLO_MAX_BOXES - tf.shape(y_train)[0]], [0, 0]]
     y_train = tf.pad(y_train, paddings)
 
     return x_train, y_train

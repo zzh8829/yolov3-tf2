@@ -2,5 +2,4 @@ tensorflow==2.4.0
 opencv-python==4.1.1.26
 lxml
 tqdm
-
--e .
+valohai-utils==0.1.8
