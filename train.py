@@ -4,6 +4,7 @@ from absl.flags import FLAGS
 import tensorflow as tf
 import numpy as np
 import cv2
+import time
 from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     EarlyStopping,
@@ -26,7 +27,7 @@ flags.DEFINE_string('weights', './checkpoints/yolov3.tf',
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
 flags.DEFINE_enum('mode', 'fit', ['fit', 'eager_fit', 'eager_tf'],
                   'fit: model.fit, '
-                  'eager_fit: model.fit(run_eagerly=True), '
+                  'eager_fit: model.fit(RUN_EAGERLY=True), '
                   'eager_tf: custom GradientTape')
 flags.DEFINE_enum('transfer', 'none',
                   ['none', 'darknet', 'no_output', 'frozen', 'fine_tune'],
@@ -42,13 +43,10 @@ flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
 flags.DEFINE_integer('num_classes', 80, 'number of classes in the model')
 flags.DEFINE_integer('weights_num_classes', None, 'specify num class for `weights` file if different, '
                      'useful in transfer learning with different number of classes')
+flags.DEFINE_boolean('multi_gpu', False, 'Use if wishing to train with more than 1 GPU.')
 
 
-def main(_argv):
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    for physical_device in physical_devices:
-        tf.config.experimental.set_memory_growth(physical_device, True)
-
+def setup_model():
     if FLAGS.tiny:
         model = YoloV3Tiny(FLAGS.size, training=True,
                            classes=FLAGS.num_classes)
@@ -58,6 +56,70 @@ def main(_argv):
         model = YoloV3(FLAGS.size, training=True, classes=FLAGS.num_classes)
         anchors = yolo_anchors
         anchor_masks = yolo_anchor_masks
+
+    # Configure the model for transfer learning
+    if FLAGS.transfer == 'none':
+        pass  # Nothing to do
+    elif FLAGS.transfer in ['darknet', 'no_output']:
+        # Darknet transfer is a special case that works
+        # with incompatible number of classes
+        # reset top layers
+        if FLAGS.tiny:
+            model_pretrained = YoloV3Tiny(
+                FLAGS.size, training=True, classes=FLAGS.weights_num_classes or FLAGS.num_classes)
+        else:
+            model_pretrained = YoloV3(
+                FLAGS.size, training=True, classes=FLAGS.weights_num_classes or FLAGS.num_classes)
+        model_pretrained.load_weights(FLAGS.weights)
+
+        if FLAGS.transfer == 'darknet':
+            model.get_layer('yolo_darknet').set_weights(
+                model_pretrained.get_layer('yolo_darknet').get_weights())
+            freeze_all(model.get_layer('yolo_darknet'))
+        elif FLAGS.transfer == 'no_output':
+            for l in model.layers:
+                if not l.name.startswith('yolo_output'):
+                    l.set_weights(model_pretrained.get_layer(
+                        l.name).get_weights())
+                    freeze_all(l)
+    else:
+        # All other transfer require matching classes
+        model.load_weights(FLAGS.weights)
+        if FLAGS.transfer == 'fine_tune':
+            # freeze darknet and fine tune other layers
+            darknet = model.get_layer('yolo_darknet')
+            freeze_all(darknet)
+        elif FLAGS.transfer == 'frozen':
+            # freeze everything
+            freeze_all(model)
+
+    optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
+    loss = [YoloLoss(anchors[mask], classes=FLAGS.num_classes)
+            for mask in anchor_masks]
+
+    model.compile(optimizer=optimizer, loss=loss,
+                  run_eagerly=(FLAGS.mode == 'eager_fit'))
+
+    return model, optimizer, loss, anchors, anchor_masks
+
+
+def main(_argv):
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+
+    # Setup
+    if FLAGS.multi_gpu:
+        for physical_device in physical_devices:
+            tf.config.experimental.set_memory_growth(physical_device, True)
+
+        strategy = tf.distribute.MirroredStrategy()
+        print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+        BATCH_SIZE = FLAGS.batch_size * strategy.num_replicas_in_sync
+        FLAGS.batch_size = BATCH_SIZE
+
+        with strategy.scope():
+            model, optimizer, loss, anchors, anchor_masks = setup_model()
+    else:
+        model, optimizer, loss, anchors, anchor_masks = setup_model()
 
     if FLAGS.dataset:
         train_dataset = dataset.load_tfrecord_dataset(
@@ -81,49 +143,6 @@ def main(_argv):
     val_dataset = val_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
         dataset.transform_targets(y, anchors, anchor_masks, FLAGS.size)))
-
-    # Configure the model for transfer learning
-    if FLAGS.transfer == 'none':
-        pass  # Nothing to do
-    elif FLAGS.transfer in ['darknet', 'no_output']:
-        # Darknet transfer is a special case that works
-        # with incompatible number of classes
-
-        # reset top layers
-        if FLAGS.tiny:
-            model_pretrained = YoloV3Tiny(
-                FLAGS.size, training=True, classes=FLAGS.weights_num_classes or FLAGS.num_classes)
-        else:
-            model_pretrained = YoloV3(
-                FLAGS.size, training=True, classes=FLAGS.weights_num_classes or FLAGS.num_classes)
-        model_pretrained.load_weights(FLAGS.weights)
-
-        if FLAGS.transfer == 'darknet':
-            model.get_layer('yolo_darknet').set_weights(
-                model_pretrained.get_layer('yolo_darknet').get_weights())
-            freeze_all(model.get_layer('yolo_darknet'))
-
-        elif FLAGS.transfer == 'no_output':
-            for l in model.layers:
-                if not l.name.startswith('yolo_output'):
-                    l.set_weights(model_pretrained.get_layer(
-                        l.name).get_weights())
-                    freeze_all(l)
-
-    else:
-        # All other transfer require matching classes
-        model.load_weights(FLAGS.weights)
-        if FLAGS.transfer == 'fine_tune':
-            # freeze darknet and fine tune other layers
-            darknet = model.get_layer('yolo_darknet')
-            freeze_all(darknet)
-        elif FLAGS.transfer == 'frozen':
-            # freeze everything
-            freeze_all(model)
-
-    optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
-    loss = [YoloLoss(anchors[mask], classes=FLAGS.num_classes)
-            for mask in anchor_masks]
 
     if FLAGS.mode == 'eager_tf':
         # Eager mode is great for debugging
@@ -173,8 +192,6 @@ def main(_argv):
             model.save_weights(
                 'checkpoints/yolov3_train_{}.tf'.format(epoch))
     else:
-        model.compile(optimizer=optimizer, loss=loss,
-                      run_eagerly=(FLAGS.mode == 'eager_fit'))
 
         callbacks = [
             ReduceLROnPlateau(verbose=1),
@@ -184,10 +201,13 @@ def main(_argv):
             TensorBoard(log_dir='logs')
         ]
 
+        start_time = time.time()
         history = model.fit(train_dataset,
                             epochs=FLAGS.epochs,
                             callbacks=callbacks,
                             validation_data=val_dataset)
+        end_time = time.time() - start_time
+        print(f'Total Training Time: {end_time}')
 
 
 if __name__ == '__main__':
