@@ -1,0 +1,34 @@
+[tool.black]
+line-length = 79
+
+[tool.poetry]
+name = "yolov3-tf2"
+version = "0.1.0"
+description = "YOLOv3 implementation in TensorFlow 2.x"
+authors = ["Prashant Patel <prashant.patel@kainos.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/prp0x80/yolov3-tf2"
+repository = "https://github.com/prp0x80/yolov3-tf2"
+keywords = ["yolo", "yolov3", "tensorflow"]
+classifiers = [
+    "Environment :: GPU",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+include = [
+    "LICENSE",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+opencv-python = "^4.2.0"
+
+[tool.poetry.dev-dependencies]
+black = "^22.6.0"
+isort = "^5.10.1"
+pytest = "^7.1.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
