@@ -118,5 +118,4 @@ def parse_tfrecord(tfrecord):
 
 def load_tfrecord_dataset(tfrecords_path: str):
     dataset = tf.data.TFRecordDataset(tfrecords_path)
-    # dataset = files.flat_map(tf.data.TFRecordDataset)
     return dataset.map(lambda x: parse_tfrecord(x))
